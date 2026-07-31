@@ -6,8 +6,8 @@ PHP 8.2-MVP voor de interne planning en administratie van verhuurfietsen.
 
 - Horizontale agenda met één rij per fiets en verhuurblokken over meerdere dagen.
 - Vrije dagen zijn klikbaar om een reservatie met voorgeselecteerde fiets en datum te starten.
-- Fietsbeheer met interne code, categorie, framemaat, dagprijs, waarborg en status.
-- Reservaties met klantgegevens, afhaal- en retourmoment, prijs, waarborg, notities en status.
+- Fietsbeheer met interne code, categorie, framemaat, dagprijs en status.
+- Reservaties met klantgegevens, afhaal- en retourmoment, prijs, notities en status.
 - Server-side blokkering van overlappende reservaties voor dezelfde fiets.
 - Veilige upload van identiteitsdocumenten in JPG, PNG of PDF.
 - ID-bestanden worden buiten de publieke webmap opgeslagen met een willekeurige bestandsnaam.
