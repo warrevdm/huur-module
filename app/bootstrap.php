@@ -4,11 +4,18 @@ declare(strict_types=1);
 
 const ROOT_PATH = __DIR__ . '/..';
 
+$autoload = ROOT_PATH . '/vendor/autoload.php';
+if (is_file($autoload)) {
+    require_once $autoload;
+}
+
 require_once __DIR__ . '/env.php';
 require_once __DIR__ . '/database.php';
 require_once __DIR__ . '/security.php';
 require_once __DIR__ . '/repositories.php';
 require_once __DIR__ . '/views.php';
+require_once __DIR__ . '/mailer.php';
+require_once __DIR__ . '/contracts.php';
 
 load_env(ROOT_PATH . '/.env');
 date_default_timezone_set(env('APP_TIMEZONE', 'Europe/Brussels'));
