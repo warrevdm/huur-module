@@ -61,12 +61,15 @@ CREATE TABLE IF NOT EXISTS reservations (
     total_price REAL NOT NULL DEFAULT 0,
     notes TEXT,
     created_by INTEGER,
+    closed_by INTEGER,
+    closed_at TEXT,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (bike_id) REFERENCES bikes(id),
     FOREIGN KEY (customer_id) REFERENCES customers(id),
     FOREIGN KEY (identity_document_id) REFERENCES identity_documents(id) ON DELETE SET NULL,
-    FOREIGN KEY (created_by) REFERENCES users(id)
+    FOREIGN KEY (created_by) REFERENCES users(id),
+    FOREIGN KEY (closed_by) REFERENCES users(id)
 );
 
 CREATE TABLE IF NOT EXISTS rental_contracts (
@@ -94,6 +97,7 @@ CREATE TABLE IF NOT EXISTS rental_contracts (
 
 CREATE INDEX IF NOT EXISTS idx_reservations_bike_dates ON reservations(bike_id, start_at, end_at);
 CREATE INDEX IF NOT EXISTS idx_reservations_status ON reservations(status);
+CREATE INDEX IF NOT EXISTS idx_reservations_closed_at ON reservations(closed_at);
 CREATE INDEX IF NOT EXISTS idx_documents_retention ON identity_documents(retention_until, deleted_at);
 CREATE INDEX IF NOT EXISTS idx_contracts_signed ON rental_contracts(signed_at);
 CREATE INDEX IF NOT EXISTS idx_contracts_email_status ON rental_contracts(email_status);
