@@ -152,6 +152,78 @@ function upload_identity_document(array $file, int $customerId, ?string $retenti
     return (int) db()->lastInsertId();
 }
 
+function upload_bike_photo(array $file): ?array
+{
+    $error = (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE);
+    if ($error === UPLOAD_ERR_NO_FILE) {
+        return null;
+    }
+    if ($error !== UPLOAD_ERR_OK) {
+        throw new RuntimeException('Uploaden van de fietsafbeelding is mislukt.');
+    }
+
+    $maxMb = max(1, (int) env('BIKE_IMAGE_MAX_MB', '8'));
+    $maxBytes = $maxMb * 1024 * 1024;
+    $size = (int) ($file['size'] ?? 0);
+    if ($size < 1 || $size > $maxBytes) {
+        throw new RuntimeException('De fietsafbeelding is te groot. Maximum: ' . $maxMb . ' MB.');
+    }
+
+    $tmpName = (string) ($file['tmp_name'] ?? '');
+    if (!is_uploaded_file($tmpName)) {
+        throw new RuntimeException('Ongeldige afbeeldingsupload.');
+    }
+
+    $finfo = new finfo(FILEINFO_MIME_TYPE);
+    $mime = (string) $finfo->file($tmpName);
+    $allowed = [
+        'image/jpeg' => 'jpg',
+        'image/png' => 'png',
+        'image/webp' => 'webp',
+    ];
+    if (!isset($allowed[$mime])) {
+        throw new RuntimeException('Gebruik een JPG-, PNG- of WebP-afbeelding.');
+    }
+
+    $imageInfo = @getimagesize($tmpName);
+    $width = (int) ($imageInfo[0] ?? 0);
+    $height = (int) ($imageInfo[1] ?? 0);
+    if ($width < 1 || $height < 1 || $width > 12000 || $height > 12000 || ($width * $height) > 40000000) {
+        throw new RuntimeException('De fietsafbeelding heeft ongeldige of te grote afmetingen.');
+    }
+
+    $uploadDir = ROOT_PATH . '/storage/private/bikes';
+    if (!is_dir($uploadDir) && !mkdir($uploadDir, 0770, true) && !is_dir($uploadDir)) {
+        throw new RuntimeException('De map voor fietsafbeeldingen kon niet worden aangemaakt.');
+    }
+
+    $storedName = bin2hex(random_bytes(24)) . '.' . $allowed[$mime];
+    $destination = $uploadDir . '/' . $storedName;
+    if (!move_uploaded_file($tmpName, $destination)) {
+        throw new RuntimeException('De fietsafbeelding kon niet veilig worden opgeslagen.');
+    }
+    @chmod($destination, 0640);
+
+    return [
+        'stored_name' => $storedName,
+        'original_name' => basename((string) ($file['name'] ?? 'fietsafbeelding.' . $allowed[$mime])),
+        'mime_type' => $mime,
+        'size_bytes' => $size,
+    ];
+}
+
+function delete_bike_photo(?string $storedName): void
+{
+    if (!$storedName) {
+        return;
+    }
+
+    $path = ROOT_PATH . '/storage/private/bikes/' . basename($storedName);
+    if (is_file($path)) {
+        @unlink($path);
+    }
+}
+
 function audit(string $action, string $entityType, ?int $entityId = null, array $details = []): void
 {
     $stmt = db()->prepare(
