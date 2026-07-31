@@ -94,17 +94,17 @@ if ($method === 'POST') {
             $auditAction = 'create';
         }
 
+        audit($auditAction, 'bike', $bikeId, [
+            'code' => $data[':code'],
+            'frame_number' => $data[':frame_number'],
+            'has_photo' => $photoStoredName !== null,
+        ]);
         db()->commit();
 
         if (($newPhoto !== null || $removePhoto) && $oldStoredName && $oldStoredName !== $photoStoredName) {
             delete_bike_photo((string) $oldStoredName);
         }
 
-        audit($auditAction, 'bike', $bikeId, [
-            'code' => $data[':code'],
-            'frame_number' => $data[':frame_number'],
-            'has_photo' => $photoStoredName !== null,
-        ]);
         flash('success', $editBike ? 'Fiets bijgewerkt.' : 'Fiets toegevoegd.');
         redirect('bikes.php?edit=' . $bikeId);
     } catch (Throwable $e) {
