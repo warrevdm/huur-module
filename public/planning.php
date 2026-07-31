@@ -44,6 +44,13 @@ render_header('Verhuurplanning');
         <?php foreach (['reserved', 'confirmed', 'picked_up', 'returned'] as $status): ?>
             <span class="legend-item"><i class="legend-swatch status-<?= e($status) ?>"></i><?= e(status_label($status)) ?></span>
         <?php endforeach; ?>
+        <span class="legend-title">Dossier:</span>
+        <span class="legend-item"><i class="booking-status-icon booking-contract-signed">✍✓</i>Contract ondertekend</span>
+        <span class="legend-item"><i class="booking-status-icon booking-contract-open">✍!</i>Nog niet ondertekend</span>
+        <span class="legend-item"><i class="booking-status-icon booking-payment-paid">€✓</i>Betaald</span>
+        <span class="legend-item"><i class="booking-status-icon booking-payment-partial">€½</i>Deels betaald</span>
+        <span class="legend-item"><i class="booking-status-icon booking-payment-open">€!</i>Nog te betalen</span>
+        <span class="legend-item"><i class="booking-status-icon booking-payment-unpriced">€—</i>Prijs niet ingesteld</span>
         <span class="legend-title">Fiets:</span>
         <span class="legend-item"><i class="legend-swatch bike-active"></i>Beschikbaar</span>
         <span class="legend-item"><i class="legend-swatch bike-maintenance"></i>Onderhoud</span>
@@ -91,10 +98,37 @@ render_header('Verhuurplanning');
                             while ($cursor + $span < $days && $start->modify('+' . ($cursor + $span) . ' days') < $activeEnd) {
                                 $span++;
                             }
+
+                            $contractSigned = !empty($active['contract_signed_at']);
+                            $totalPrice = round((float) ($active['total_price'] ?? 0), 2);
+                            $paidAmount = round((float) ($active['paid_amount'] ?? 0), 2);
+                            if ($totalPrice <= 0) {
+                                $paymentClass = 'booking-payment-unpriced';
+                                $paymentIcon = '€—';
+                                $paymentTitle = 'Totaalprijs nog niet ingesteld';
+                            } elseif ($paidAmount + 0.009 >= $totalPrice) {
+                                $paymentClass = 'booking-payment-paid';
+                                $paymentIcon = '€✓';
+                                $paymentTitle = 'Volledig betaald: € ' . number_format($paidAmount, 2, ',', '.');
+                            } elseif ($paidAmount > 0) {
+                                $paymentClass = 'booking-payment-partial';
+                                $paymentIcon = '€½';
+                                $paymentTitle = 'Deels betaald: € ' . number_format($paidAmount, 2, ',', '.') . ' van € ' . number_format($totalPrice, 2, ',', '.');
+                            } else {
+                                $paymentClass = 'booking-payment-open';
+                                $paymentIcon = '€!';
+                                $paymentTitle = 'Nog niet betaald: € ' . number_format($totalPrice, 2, ',', '.');
+                            }
                     ?>
                         <td colspan="<?= $span ?>">
                             <a class="booking-block status-<?= e($active['status']) ?>" href="reservation.php?id=<?= (int) $active['id'] ?>">
-                                <strong><?= e($active['customer_name']) ?></strong>
+                                <span class="booking-title-row">
+                                    <strong><?= e($active['customer_name']) ?></strong>
+                                    <span class="booking-status-icons" aria-label="Contract- en betaalstatus">
+                                        <span class="booking-status-icon <?= $contractSigned ? 'booking-contract-signed' : 'booking-contract-open' ?>" title="<?= $contractSigned ? 'Contract ondertekend' : 'Contract nog niet ondertekend' ?>" aria-label="<?= $contractSigned ? 'Contract ondertekend' : 'Contract nog niet ondertekend' ?>"><?= $contractSigned ? '✍✓' : '✍!' ?></span>
+                                        <span class="booking-status-icon <?= e($paymentClass) ?>" title="<?= e($paymentTitle) ?>" aria-label="<?= e($paymentTitle) ?>"><?= e($paymentIcon) ?></span>
+                                    </span>
+                                </span>
                                 <span><?= e((new DateTimeImmutable($active['start_at']))->format('d/m H:i')) ?> → <?= e($activeEnd->format('d/m H:i')) ?></span>
                                 <span><?= e(status_label($active['status'])) ?><?= $active['document_id'] ? ' · ID ✓' : '' ?></span>
                             </a>
