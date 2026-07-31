@@ -32,7 +32,7 @@ function current_user(): ?array
 function require_auth(): void
 {
     if (current_user() === null) {
-        redirect('?route=login');
+        redirect('index.php?route=login');
     }
 }
 
@@ -134,7 +134,7 @@ function upload_identity_document(array $file, int $customerId, ?string $retenti
     if (!move_uploaded_file($tmpName, $destination)) {
         throw new RuntimeException('Het document kon niet veilig worden opgeslagen.');
     }
-    chmod($destination, 0640);
+    @chmod($destination, 0640);
 
     $stmt = db()->prepare(
         'INSERT INTO identity_documents (customer_id, original_name, stored_name, mime_type, size_bytes, retention_until, created_at)
