@@ -72,6 +72,28 @@ CREATE TABLE IF NOT EXISTS reservations (
     FOREIGN KEY (closed_by) REFERENCES users(id)
 );
 
+CREATE TABLE IF NOT EXISTS reservation_bikes (
+    reservation_id INTEGER NOT NULL,
+    bike_id INTEGER NOT NULL,
+    daily_rate REAL NOT NULL DEFAULT 0,
+    PRIMARY KEY (reservation_id, bike_id),
+    FOREIGN KEY (reservation_id) REFERENCES reservations(id) ON DELETE CASCADE,
+    FOREIGN KEY (bike_id) REFERENCES bikes(id)
+);
+
+CREATE TABLE IF NOT EXISTS payment_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    reservation_id INTEGER NOT NULL,
+    amount REAL NOT NULL CHECK(amount > 0),
+    method TEXT NOT NULL CHECK(method IN ('bancontact', 'cash')),
+    note TEXT,
+    paid_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    recorded_by INTEGER,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (reservation_id) REFERENCES reservations(id) ON DELETE CASCADE,
+    FOREIGN KEY (recorded_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
 CREATE TABLE IF NOT EXISTS rental_contracts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     reservation_id INTEGER NOT NULL UNIQUE,
@@ -95,12 +117,6 @@ CREATE TABLE IF NOT EXISTS rental_contracts (
     FOREIGN KEY (reservation_id) REFERENCES reservations(id) ON DELETE CASCADE
 );
 
-CREATE INDEX IF NOT EXISTS idx_reservations_bike_dates ON reservations(bike_id, start_at, end_at);
-CREATE INDEX IF NOT EXISTS idx_reservations_status ON reservations(status);
-CREATE INDEX IF NOT EXISTS idx_documents_retention ON identity_documents(retention_until, deleted_at);
-CREATE INDEX IF NOT EXISTS idx_contracts_signed ON rental_contracts(signed_at);
-CREATE INDEX IF NOT EXISTS idx_contracts_email_status ON rental_contracts(email_status);
-
 CREATE TABLE IF NOT EXISTS audit_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER,
@@ -112,3 +128,13 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_bikes_frame_number_unique ON bikes(frame_number) WHERE frame_number IS NOT NULL AND frame_number != '';
+CREATE INDEX IF NOT EXISTS idx_reservations_bike_dates ON reservations(bike_id, start_at, end_at);
+CREATE INDEX IF NOT EXISTS idx_reservations_status ON reservations(status);
+CREATE INDEX IF NOT EXISTS idx_reservations_closed_at ON reservations(closed_at);
+CREATE INDEX IF NOT EXISTS idx_reservation_bikes_bike ON reservation_bikes(bike_id, reservation_id);
+CREATE INDEX IF NOT EXISTS idx_payment_logs_reservation ON payment_logs(reservation_id, paid_at);
+CREATE INDEX IF NOT EXISTS idx_documents_retention ON identity_documents(retention_until, deleted_at);
+CREATE INDEX IF NOT EXISTS idx_contracts_signed ON rental_contracts(signed_at);
+CREATE INDEX IF NOT EXISTS idx_contracts_email_status ON rental_contracts(email_status);
