@@ -5,9 +5,11 @@
 /storage/private/signatures/*
 /storage/private/contracts/*
 /storage/private/mail/*
+/storage/private/bikes/*
 !/storage/private/ids/.gitkeep
 !/storage/private/signatures/.gitkeep
 !/storage/private/contracts/.gitkeep
 !/storage/private/mail/.gitkeep
+!/storage/private/bikes/.gitkeep
 /storage/logs/*
 .DS_Store
