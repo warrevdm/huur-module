@@ -24,7 +24,7 @@ function render_header(string $title, bool $showNav = true): void
             <nav>
                 <a href="index.php?route=planning">Planning</a>
                 <a href="index.php?route=reservation-new">Nieuwe verhuur</a>
-                <a href="index.php?route=bikes">Fietsen</a>
+                <a href="bikes.php">Fietsen</a>
             </nav>
             <form method="post" action="index.php?route=logout" class="logout-form">
                 <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
