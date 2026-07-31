@@ -8,6 +8,7 @@ function render_header(string $title, bool $showNav = true): void
     $user = current_user();
     $flashes = take_flashes();
     $stylesVersion = is_file(ROOT_PATH . '/public/assets/styles.css') ? (string) filemtime(ROOT_PATH . '/public/assets/styles.css') : '1';
+    $planningStatusVersion = is_file(ROOT_PATH . '/public/assets/planning-status.css') ? (string) filemtime(ROOT_PATH . '/public/assets/planning-status.css') : '1';
     $contractVersion = is_file(ROOT_PATH . '/public/assets/contract.css') ? (string) filemtime(ROOT_PATH . '/public/assets/contract.css') : '1';
     ?>
     <!doctype html>
@@ -17,6 +18,7 @@ function render_header(string $title, bool $showNav = true): void
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title><?= e($title) ?> · <?= e($appName) ?></title>
         <link rel="stylesheet" href="assets/styles.css?v=<?= e($stylesVersion) ?>">
+        <link rel="stylesheet" href="assets/planning-status.css?v=<?= e($planningStatusVersion) ?>">
         <link rel="stylesheet" href="assets/contract.css?v=<?= e($contractVersion) ?>">
     </head>
     <body>
