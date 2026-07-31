@@ -1,6 +1,13 @@
 .env
+/vendor/
 /storage/database.sqlite
 /storage/private/ids/*
+/storage/private/signatures/*
+/storage/private/contracts/*
+/storage/private/mail/*
 !/storage/private/ids/.gitkeep
+!/storage/private/signatures/.gitkeep
+!/storage/private/contracts/.gitkeep
+!/storage/private/mail/.gitkeep
 /storage/logs/*
 .DS_Store
