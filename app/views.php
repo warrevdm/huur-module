@@ -7,6 +7,8 @@ function render_header(string $title, bool $showNav = true): void
     $appName = env('APP_NAME', 'Aerts Action Bike Verhuur');
     $user = current_user();
     $flashes = take_flashes();
+    $stylesVersion = is_file(ROOT_PATH . '/public/assets/styles.css') ? (string) filemtime(ROOT_PATH . '/public/assets/styles.css') : '1';
+    $contractVersion = is_file(ROOT_PATH . '/public/assets/contract.css') ? (string) filemtime(ROOT_PATH . '/public/assets/contract.css') : '1';
     ?>
     <!doctype html>
     <html lang="nl-BE">
@@ -14,8 +16,8 @@ function render_header(string $title, bool $showNav = true): void
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title><?= e($title) ?> · <?= e($appName) ?></title>
-        <link rel="stylesheet" href="assets/styles.css">
-        <link rel="stylesheet" href="assets/contract.css">
+        <link rel="stylesheet" href="assets/styles.css?v=<?= e($stylesVersion) ?>">
+        <link rel="stylesheet" href="assets/contract.css?v=<?= e($contractVersion) ?>">
     </head>
     <body>
     <?php if ($showNav && $user): ?>
@@ -48,9 +50,10 @@ function render_header(string $title, bool $showNav = true): void
 
 function render_footer(): void
 {
+    $appVersion = is_file(ROOT_PATH . '/public/assets/app.js') ? (string) filemtime(ROOT_PATH . '/public/assets/app.js') : '1';
     ?>
     </main>
-    <script src="assets/app.js" defer></script>
+    <script src="assets/app.js?v=<?= e($appVersion) ?>" defer></script>
     </body>
     </html>
     <?php
