@@ -1,0 +1,31 @@
+name: PHP check
+
+on:
+  push:
+    branches: [agent/initial-rental-module]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint-and-migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: pdo_sqlite, fileinfo, dom, mbstring
+          coverage: none
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist
+      - name: Configure test environment
+        run: cp .env.example .env
+      - name: Lint PHP files
+        run: find app bin public -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: Run database setup
+        run: php bin/setup.php
+      - name: Verify upgraded schema
+        run: |
+          php -r 'require "app/bootstrap.php"; $required=["reservation_bikes","payment_logs"]; foreach($required as $table){$s=db()->prepare("SELECT 1 FROM sqlite_master WHERE type=\"table\" AND name=:name");$s->execute([":name"=>$table]);if(!$s->fetchColumn()){fwrite(STDERR,"Missing table: $table\n");exit(1);}} echo "Schema OK\n";'
