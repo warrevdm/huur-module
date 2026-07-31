@@ -20,7 +20,7 @@ function handle_reservation_status_request(): never
 
     if (!$reservation || !in_array($status, $allowed, true)) {
         flash('error', 'Ongeldige status.');
-        redirect('index.php?route=planning');
+        redirect('planning.php');
     }
 
     $previousStatus = (string) $reservation['status'];
@@ -73,5 +73,5 @@ function handle_reservation_status_request(): never
         flash('success', 'Status aangepast.');
     }
 
-    redirect('index.php?route=reservation-view&id=' . $id);
+    redirect('reservation.php?id=' . $id);
 }
