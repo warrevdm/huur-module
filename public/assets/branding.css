@@ -44,20 +44,22 @@
 
 .public-contract-header {
     min-height: 88px;
-}
-
-.public-contract-brand {
-    display: inline-flex;
     align-items: center;
 }
 
-.public-contract-brand img {
+.public-contract-header > strong:first-child {
     display: block;
     width: 210px;
     max-width: 48vw;
     height: 68px;
-    object-fit: contain;
-    object-position: left center;
+    flex: 0 0 auto;
+    overflow: hidden;
+    background-image: url("aerts-action-bike-logo.svg");
+    background-repeat: no-repeat;
+    background-position: left center;
+    background-size: contain;
+    color: transparent;
+    font-size: 0;
 }
 
 @media (max-width: 800px) {
@@ -75,7 +77,7 @@
         gap: 8px;
     }
 
-    .public-contract-brand img {
+    .public-contract-header > strong:first-child {
         width: 175px;
         max-width: 62vw;
         height: 58px;
