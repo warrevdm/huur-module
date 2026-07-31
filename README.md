@@ -1,92 +1,114 @@
 # Aerts Action Bike — interne verhuurmodule
 
-PHP 8.2-MVP voor de interne planning en administratie van verhuurfietsen.
+PHP 8.2-module voor interne fietsverhuur, planning, contractopmaak, elektronische ondertekening en contractmail.
 
 ## Functionaliteit
 
 - Horizontale agenda met één rij per fiets en verhuurblokken over meerdere dagen.
-- Vrije dagen zijn klikbaar om een reservatie met voorgeselecteerde fiets en datum te starten.
-- Fietsbeheer met interne code, categorie, framemaat, dagprijs en status.
 - Reservaties met klantgegevens, afhaal- en retourmoment, prijs, notities en status.
 - Server-side blokkering van overlappende reservaties voor dezelfde fiets.
-- Veilige upload van identiteitsdocumenten in JPG, PNG of PDF.
-- ID-bestanden worden buiten de publieke webmap opgeslagen met een willekeurige bestandsnaam.
-- ID-bestanden zijn uitsluitend na login toegankelijk en downloads worden gelogd.
-- Een bewaartermijn kan per identiteitsdocument worden ingesteld.
-- Auditlog voor login, reservaties, statuswijzigingen en documenttoegang.
+- Automatische huurovereenkomst na het opslaan van een reservatie.
+- Publieke ondertekenpagina met handtekeningvak, naam, akkoordcheckbox en een willekeurige beveiligingstoken.
+- Bewijsregistratie met contracthash, ondertekenmoment, IP-adres en user-agent.
+- Ondertekend contract als PDF wanneer Dompdf geïnstalleerd is.
+- Contractkopie via SMTP met PHPMailer; in lokale testmodus wordt een mailvoorbeeld opgeslagen.
+- Contractstatus en herverzending vanuit de reservatiefiche.
+- Optionele private documentupload buiten de publieke webmap.
 
 ## Vereisten
 
 - PHP 8.2 of hoger
-- PHP-extensies `pdo_sqlite` en `fileinfo`
-- Schrijfrechten op de map `storage/`
-- De webserver document root moet naar `public/` wijzen
+- PHP-extensies `pdo_sqlite`, `fileinfo`, `dom` en `mbstring`
+- Composer
+- Schrijfrechten op `storage/`
 - HTTPS in productie
+- De document root moet naar `public/` wijzen
 
-## Lokaal starten
+## Bestaande lokale installatie bijwerken
 
-```bash
-cp .env.example .env
+```powershell
+# Stop eerst de PHP-server met Ctrl+C
+git pull origin agent/initial-rental-module
+composer install
 php bin/setup.php
 php -S localhost:8080 -t public
 ```
 
-Open daarna `http://localhost:8080`.
+`php bin/setup.php` verwijdert geen bestaande reservaties. Het maakt de nieuwe contracttabel aan wanneer die nog ontbreekt.
 
-Wijzig vóór de eerste setup minstens deze waarden in `.env`:
+## Nieuwe installatie
 
-```dotenv
-ADMIN_EMAIL=beheer@voorbeeld.be
-ADMIN_PASSWORD=gebruik-een-sterk-wachtwoord
+```powershell
+Copy-Item .env.example .env
+composer install
+php bin/setup.php
+php -S localhost:8080 -t public
 ```
 
-## Productie-installatie
+Open `http://localhost:8080`.
 
-1. Kopieer `.env.example` naar `.env`.
-2. Stel een uniek en sterk beheerderswachtwoord in.
-3. Stel de document root van het domein of subdomein in op `public/`.
-4. Zorg dat `storage/` niet rechtstreeks via de webserver bereikbaar is.
-5. Controleer dat PHP `pdo_sqlite` en `fileinfo` geladen zijn.
-6. Voer `php bin/setup.php` één keer uit.
-7. Activeer HTTPS en maak een databaseback-upbeleid.
+## Contractflow
 
-## ID-upload en privacy
+1. Medewerker maakt een reservatie aan.
+2. De module maakt automatisch een contract aan.
+3. Medewerker controleert de inhoud en opent de ondertekenpagina.
+4. De klant leest de voorwaarden, vult zijn of haar naam in en tekent op het scherm.
+5. De module bewaart de handtekening, contractinhoud, hashes en technische bewijsgegevens.
+6. De module maakt een PDF en mailt de exacte contractinhoud naar de klant.
+7. Vanuit de reservatiefiche kan het contract opnieuw worden geopend, gedownload of gemaild.
 
-De module controleert het werkelijke MIME-type via PHP `fileinfo`, limiteert de bestandsgrootte via `ID_MAX_MB`, gebruikt willekeurige bestandsnamen en bewaart documenten onder `storage/private/ids/`.
+## E-mail instellen
 
-Een volledige kopie van een identiteitskaart bevat vaak meer persoonsgegevens dan nodig. Leg intern vast:
+Lokaal staat de module standaard in testmodus:
 
-- waarom de kopie noodzakelijk is;
-- welke gegevens zichtbaar moeten zijn;
-- wie toegang krijgt;
-- hoe lang het document bewaard wordt;
-- hoe de klant hierover geïnformeerd wordt.
+```dotenv
+MAIL_TRANSPORT=log
+```
 
-De standaard bewaartermijn staat op 30 dagen na de retourdatum en is instelbaar via `ID_RETENTION_DAYS`. De verwijderdatum wordt opgeslagen; een automatische cron-opruimtaak moet nog als aparte productie-hardening worden toegevoegd.
+De e-mail wordt dan niet echt verzonden, maar opgeslagen onder:
+
+```text
+storage/private/mail/
+```
+
+Voor echte verzending:
+
+```dotenv
+MAIL_TRANSPORT=smtp
+MAIL_HOST=smtp.voorbeeld.be
+MAIL_PORT=587
+MAIL_ENCRYPTION=tls
+MAIL_USERNAME=gebruikersnaam
+MAIL_PASSWORD=sterk-app-wachtwoord
+MAIL_FROM_ADDRESS=info@aertsactionbike.be
+MAIL_FROM_NAME="Aerts Action Bike"
+```
+
+Gebruik bij Microsoft 365 bij voorkeur een afzonderlijk SMTP-account of OAuth2/appconfiguratie volgens het interne IT-beleid. Plaats nooit mailwachtwoorden in Git.
+
+## Contractvoorwaarden
+
+De meegeleverde modeltekst gebruikt geen willekeurige vaste hoge boete. Ze voorziet:
+
+- bij laattijdige teruggave: de daghuur per begonnen periode van 24 uur;
+- bij schade: de aantoonbare herstelkost, met uitsluiting van normale slijtage;
+- bij definitieve niet-teruggave: de aantoonbare actuele vervangingswaarde, rekening houdend met leeftijd en staat, plus redelijke bewezen recuperatiekosten;
+- een gelijkwaardige oplossing voor de klant wanneer Aerts Action Bike de afgesproken fiets niet kan leveren.
+
+Laat de definitieve tekst, bedrijfsgegevens en operationele bedragen vóór productie nakijken door een Belgische jurist of sectorfederatie.
+
+## Elektronische handtekening
+
+De canvas-handtekening is een gewone elektronische handtekening met aanvullende bewijsgegevens. Ze is niet automatisch een gekwalificeerde elektronische handtekening. Voor contracten met een hoger bewijsrisico kan later itsme, eID of een gekwalificeerde ondertekenprovider worden geïntegreerd.
+
+## Identiteitsgegevens
+
+Maak een kopie van een identiteitskaart niet verplicht zonder concrete wettelijke basis. Gebruik waar mogelijk een visuele controle en verwerk alleen noodzakelijke gegevens. De bestaande upload is optioneel en moet vóór productie worden afgestemd met de privacyverantwoordelijke.
 
 ## Belangrijkste routes
 
-- `?route=planning`
-- `?route=reservation-new`
-- `?route=reservation-view&id=1`
-- `?route=bikes`
-
-## Datamodel
-
-- `users`
-- `bikes`
-- `customers`
-- `reservations`
-- `identity_documents`
-- `audit_logs`
-
-## Volgende uitbreidingen
-
-- Reservaties wijzigen en een fiets omboeken.
-- Onderhoudsblokken rechtstreeks in de planning.
-- Accessoires per verhuur: helm, slot, lader en kinderzitje.
-- Schadecheck met foto's bij afhaling en retour.
-- Digitale huurovereenkomst en handtekening.
-- E-mailbevestiging en retourherinnering.
-- Automatische verwijdertaak voor verlopen ID-documenten.
-- MySQL-driver voor grotere gelijktijdige bezetting.
+- `index.php?route=planning`
+- `index.php?route=reservation-new`
+- `index.php?route=reservation-view&id=1`
+- `contract.php?reservation_id=1`
+- `sign.php?token=...`
