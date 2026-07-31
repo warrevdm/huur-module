@@ -1,0 +1,117 @@
+<?php
+
+declare(strict_types=1);
+
+require_once __DIR__ . '/../app/bootstrap.php';
+require_auth();
+
+$days = max(7, min(28, (int) ($_GET['days'] ?? 14)));
+$start = DateTimeImmutable::createFromFormat('!Y-m-d', (string) ($_GET['start'] ?? date('Y-m-d'))) ?: new DateTimeImmutable('today');
+$end = $start->modify("+{$days} days");
+$bikes = all_bikes(true);
+$events = reservations_for_range($start, $end);
+$counts = reservation_counts();
+$byBike = [];
+foreach ($events as $event) {
+    $byBike[(int) $event['bike_id']][] = $event;
+}
+
+render_header('Verhuurplanning');
+?>
+<section class="grid">
+    <div class="card col-4"><span class="stat"><?= (int) ($counts['pickups'] ?? 0) ?></span><span class="muted">afhalingen vandaag</span></div>
+    <div class="card col-4"><span class="stat"><?= (int) ($counts['returns'] ?? 0) ?></span><span class="muted">retours vandaag</span></div>
+    <div class="card col-4"><span class="stat"><?= (int) ($counts['active'] ?? 0) ?></span><span class="muted">verhuren onderweg</span></div>
+</section>
+
+<section class="card mt-18">
+    <div class="planning-toolbar">
+        <div class="actions">
+            <a class="button button-secondary" href="planning.php?start=<?= e($start->modify("-{$days} days")->format('Y-m-d')) ?>&amp;days=<?= $days ?>">← Vorige</a>
+            <a class="button button-secondary" href="planning.php?days=<?= $days ?>">Vandaag</a>
+            <a class="button button-secondary" href="planning.php?start=<?= e($end->format('Y-m-d')) ?>&amp;days=<?= $days ?>">Volgende →</a>
+        </div>
+        <div class="actions">
+            <a href="planning.php?days=7">7 dagen</a>
+            <a href="planning.php?days=14">14 dagen</a>
+            <a href="planning.php?days=28">28 dagen</a>
+            <a class="button" href="reservation-new.php">+ Nieuwe verhuur</a>
+        </div>
+    </div>
+
+    <div class="planning-legend" aria-label="Legende planning">
+        <span class="legend-title">Reservatie:</span>
+        <?php foreach (['reserved', 'confirmed', 'picked_up', 'returned'] as $status): ?>
+            <span class="legend-item"><i class="legend-swatch status-<?= e($status) ?>"></i><?= e(status_label($status)) ?></span>
+        <?php endforeach; ?>
+        <span class="legend-title">Fiets:</span>
+        <span class="legend-item"><i class="legend-swatch bike-active"></i>Beschikbaar</span>
+        <span class="legend-item"><i class="legend-swatch bike-maintenance"></i>Onderhoud</span>
+        <span class="legend-item"><i class="legend-swatch bike-inactive"></i>Inactief</span>
+    </div>
+
+    <?php if (!$bikes): ?>
+        <div class="alert alert-warning">Voeg eerst een verhuurfiets toe.</div>
+        <a class="button" href="bikes.php">Fiets toevoegen</a>
+    <?php else: ?>
+        <div class="planning-wrap"><table class="planning">
+            <thead><tr><th class="bike-cell">Fiets</th>
+            <?php for ($i = 0; $i < $days; $i++): $date = $start->modify("+{$i} days"); ?>
+                <th class="<?= $date->format('Y-m-d') === date('Y-m-d') ? 'today' : '' ?> <?= in_array((int) $date->format('N'), [6, 7], true) ? 'weekend' : '' ?>"><?= e($date->format('D')) ?><br><strong><?= e($date->format('d/m')) ?></strong></th>
+            <?php endfor; ?></tr></thead>
+            <tbody>
+            <?php foreach ($bikes as $bike):
+                $cursor = 0;
+                $bikeEvents = $byBike[(int) $bike['id']] ?? [];
+                $bikeStatus = (string) $bike['status'];
+                $planable = $bikeStatus === 'active';
+            ?>
+                <tr class="bike-row bike-row-<?= e($bikeStatus) ?>">
+                    <td class="bike-cell">
+                        <div class="planning-bike-heading">
+                            <strong><?= e($bike['name']) ?></strong>
+                            <span class="badge badge-<?= e($bikeStatus) ?>"><?= e(bike_status_label($bikeStatus)) ?></span>
+                        </div>
+                        <span class="muted"><?= e($bike['code']) ?> · <?= e($bike['category']) ?></span>
+                        <?php if (!$planable): ?><span class="bike-block-reason"><?= $bikeStatus === 'maintenance' ? 'Niet inplanbaar tijdens onderhoud' : 'Niet inplanbaar zolang inactief' ?></span><?php endif; ?>
+                    </td>
+                    <?php while ($cursor < $days):
+                        $day = $start->modify("+{$cursor} days");
+                        $dayEnd = $day->modify('+1 day');
+                        $active = null;
+                        foreach ($bikeEvents as $candidate) {
+                            if (new DateTimeImmutable($candidate['start_at']) < $dayEnd && new DateTimeImmutable($candidate['end_at']) > $day) {
+                                $active = $candidate;
+                                break;
+                            }
+                        }
+                        if ($active):
+                            $activeEnd = new DateTimeImmutable($active['end_at']);
+                            $span = 1;
+                            while ($cursor + $span < $days && $start->modify('+' . ($cursor + $span) . ' days') < $activeEnd) {
+                                $span++;
+                            }
+                    ?>
+                        <td colspan="<?= $span ?>">
+                            <a class="booking-block status-<?= e($active['status']) ?>" href="reservation.php?id=<?= (int) $active['id'] ?>">
+                                <strong><?= e($active['customer_name']) ?></strong>
+                                <span><?= e((new DateTimeImmutable($active['start_at']))->format('d/m H:i')) ?> → <?= e($activeEnd->format('d/m H:i')) ?></span>
+                                <span><?= e(status_label($active['status'])) ?><?= $active['document_id'] ? ' · ID ✓' : '' ?></span>
+                            </a>
+                        </td>
+                    <?php $cursor += $span; else: ?>
+                        <td class="day-cell <?= in_array((int) $day->format('N'), [6, 7], true) ? 'weekend' : '' ?> <?= !$planable ? 'blocked-slot' : '' ?>">
+                            <?php if ($planable): ?>
+                                <a class="empty-slot" href="reservation-new.php?bike_id=<?= (int) $bike['id'] ?>&amp;start_date=<?= e($day->format('Y-m-d')) ?>" title="Nieuwe verhuur"></a>
+                            <?php else: ?>
+                                <span class="blocked-slot-mark" title="<?= e(bike_status_label($bikeStatus)) ?>">×</span>
+                            <?php endif; ?>
+                        </td>
+                    <?php $cursor++; endif; endwhile; ?>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table></div>
+    <?php endif; ?>
+</section>
+<?php render_footer();
