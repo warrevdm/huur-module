@@ -9,6 +9,18 @@ function find_user_by_email(string $email): ?array
     return $stmt->fetch() ?: null;
 }
 
+function find_user(int $id): ?array
+{
+    $stmt = db()->prepare('SELECT * FROM users WHERE id = :id LIMIT 1');
+    $stmt->execute([':id' => $id]);
+    return $stmt->fetch() ?: null;
+}
+
+function all_users(): array
+{
+    return db()->query("SELECT * FROM users ORDER BY active DESC, CASE role WHEN 'admin' THEN 0 ELSE 1 END, name, email")->fetchAll();
+}
+
 function all_bikes(bool $includeInactive = true): array
 {
     $sql = 'SELECT * FROM bikes';
@@ -54,11 +66,15 @@ function find_reservation(int $id): ?array
                 c.name AS customer_name, c.email AS customer_email, c.phone AS customer_phone,
                 c.address AS customer_address, d.id AS document_id, d.original_name AS document_name,
                 d.mime_type AS document_mime, d.size_bytes AS document_size, d.retention_until,
-                d.deleted_at AS document_deleted_at
+                d.deleted_at AS document_deleted_at,
+                creator.name AS created_by_name, creator.email AS created_by_email,
+                closer.name AS closed_by_name, closer.email AS closed_by_email
          FROM reservations r
          JOIN bikes b ON b.id = r.bike_id
          JOIN customers c ON c.id = r.customer_id
          LEFT JOIN identity_documents d ON d.id = r.identity_document_id
+         LEFT JOIN users creator ON creator.id = r.created_by
+         LEFT JOIN users closer ON closer.id = r.closed_by
          WHERE r.id = :id'
     );
     $stmt->execute([':id' => $id]);
