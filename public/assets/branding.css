@@ -1,0 +1,83 @@
+.sr-only {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+}
+
+.topbar .brand {
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+    min-width: 170px;
+}
+
+.topbar .brand img {
+    display: block;
+    width: 172px;
+    height: 56px;
+    object-fit: contain;
+    object-position: left center;
+}
+
+.login-logo {
+    display: block;
+    width: 100%;
+    height: 112px;
+    margin: -6px 0 18px;
+    padding: 16px 20px;
+    overflow: hidden;
+    border-radius: 12px;
+    background-color: #152019;
+    background-image: url("aerts-action-bike-logo.svg");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: min(88%, 360px) auto;
+    color: transparent;
+    font-size: 0;
+}
+
+.public-contract-header {
+    min-height: 88px;
+}
+
+.public-contract-brand {
+    display: inline-flex;
+    align-items: center;
+}
+
+.public-contract-brand img {
+    display: block;
+    width: 210px;
+    max-width: 48vw;
+    height: 68px;
+    object-fit: contain;
+    object-position: left center;
+}
+
+@media (max-width: 800px) {
+    .topbar .brand {
+        min-width: 145px;
+    }
+
+    .topbar .brand img {
+        width: 148px;
+        height: 48px;
+    }
+
+    .public-contract-header {
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .public-contract-brand img {
+        width: 175px;
+        max-width: 62vw;
+        height: 58px;
+    }
+}
