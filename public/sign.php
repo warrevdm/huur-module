@@ -60,7 +60,7 @@ $flashes = take_flashes();
     <?php else: ?>
         <div class="contract-intro">
             <h1>Controleer en onderteken uw huurovereenkomst</h1>
-            <p>Lees de volledige overeenkomst. Onderteken pas wanneer de fiets, periode, prijs en voorwaarden correct zijn.</p>
+            <p>Lees de volledige overeenkomst. Onderteken pas wanneer alle fietsen, de periode, prijs en voorwaarden correct zijn.</p>
         </div>
 
         <article class="contract-preview">
@@ -89,7 +89,7 @@ $flashes = take_flashes();
 
             <label class="accept-row">
                 <input class="checkbox-inline" type="checkbox" name="accept_contract" value="1" required>
-                <span>Ik heb de volledige huurovereenkomst gelezen, de gegevens gecontroleerd en ga akkoord met de voorwaarden.</span>
+                <span>Ik heb de volledige huurovereenkomst gelezen, alle fietsgegevens gecontroleerd en ga akkoord met de voorwaarden.</span>
             </label>
 
             <div class="alert alert-warning" id="signature-error" hidden></div>
@@ -102,6 +102,8 @@ render_public_contract_footer();
 
 function render_public_contract_header(string $title): void
 {
+    $stylesVersion = is_file(ROOT_PATH . '/public/assets/styles.css') ? (string) filemtime(ROOT_PATH . '/public/assets/styles.css') : '1';
+    $contractVersion = is_file(ROOT_PATH . '/public/assets/contract.css') ? (string) filemtime(ROOT_PATH . '/public/assets/contract.css') : '1';
     ?>
     <!doctype html>
     <html lang="nl-BE">
@@ -109,8 +111,8 @@ function render_public_contract_header(string $title): void
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title><?= e($title) ?> · Aerts Action Bike</title>
-        <link rel="stylesheet" href="assets/styles.css">
-        <link rel="stylesheet" href="assets/contract.css">
+        <link rel="stylesheet" href="assets/styles.css?v=<?= e($stylesVersion) ?>">
+        <link rel="stylesheet" href="assets/contract.css?v=<?= e($contractVersion) ?>">
     </head>
     <body class="contract-page">
     <header class="public-contract-header">
