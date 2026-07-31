@@ -129,10 +129,8 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_bikes_frame_number_unique ON bikes(frame_number) WHERE frame_number IS NOT NULL AND frame_number != '';
 CREATE INDEX IF NOT EXISTS idx_reservations_bike_dates ON reservations(bike_id, start_at, end_at);
 CREATE INDEX IF NOT EXISTS idx_reservations_status ON reservations(status);
-CREATE INDEX IF NOT EXISTS idx_reservations_closed_at ON reservations(closed_at);
 CREATE INDEX IF NOT EXISTS idx_reservation_bikes_bike ON reservation_bikes(bike_id, reservation_id);
 CREATE INDEX IF NOT EXISTS idx_payment_logs_reservation ON payment_logs(reservation_id, paid_at);
 CREATE INDEX IF NOT EXISTS idx_documents_retention ON identity_documents(retention_until, deleted_at);
