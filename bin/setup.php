@@ -45,19 +45,24 @@ $password = env('ADMIN_PASSWORD', 'change-me-now');
 $name = env('ADMIN_NAME', 'Beheerder');
 
 $existing = find_user_by_email((string) $email);
-if ($existing === null) {
-    $stmt = db()->prepare(
-        "INSERT INTO users (name, email, password_hash, role, active)
-         VALUES (:name, :email, :password_hash, 'admin', 1)"
-    );
-    $stmt->execute([
-        ':name' => $name,
-        ':email' => $email,
-        ':password_hash' => password_hash((string) $password, PASSWORD_DEFAULT),
-    ]);
-    echo "Admin aangemaakt: {$email}\n";
+if ($existing !== null) {
+    echo "Admin bestaat al: {$existing['email']}\n";
 } else {
-    echo "Admin bestaat al: {$email}\n";
+    $existingAdmin = db()->query("SELECT * FROM users WHERE role = 'admin' AND active = 1 ORDER BY id LIMIT 1")->fetch();
+    if ($existingAdmin) {
+        echo "Admin bestaat al: {$existingAdmin['email']}\n";
+    } else {
+        $stmt = db()->prepare(
+            "INSERT INTO users (name, email, password_hash, role, active)
+             VALUES (:name, :email, :password_hash, 'admin', 1)"
+        );
+        $stmt->execute([
+            ':name' => $name,
+            ':email' => $email,
+            ':password_hash' => password_hash((string) $password, PASSWORD_DEFAULT),
+        ]);
+        echo "Admin aangemaakt: {$email}\n";
+    }
 }
 
 echo "Database klaar.\n";
