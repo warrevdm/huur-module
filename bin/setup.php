@@ -34,6 +34,25 @@ foreach ($bikeMigrations as $column => $sql) {
 
 db()->exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_bikes_frame_number_unique ON bikes(frame_number) WHERE frame_number IS NOT NULL AND frame_number != ''");
 
+$reservationColumns = [];
+foreach (db()->query('PRAGMA table_info(reservations)')->fetchAll() as $column) {
+    $reservationColumns[(string) $column['name']] = true;
+}
+
+$reservationMigrations = [
+    'closed_by' => 'ALTER TABLE reservations ADD COLUMN closed_by INTEGER REFERENCES users(id)',
+    'closed_at' => 'ALTER TABLE reservations ADD COLUMN closed_at TEXT',
+];
+
+foreach ($reservationMigrations as $column => $sql) {
+    if (!isset($reservationColumns[$column])) {
+        db()->exec($sql);
+        echo "Reservatiekolom toegevoegd: {$column}\n";
+    }
+}
+
+db()->exec('CREATE INDEX IF NOT EXISTS idx_reservations_closed_at ON reservations(closed_at)');
+
 $bikePhotoDir = ROOT_PATH . '/storage/private/bikes';
 if (!is_dir($bikePhotoDir) && !mkdir($bikePhotoDir, 0770, true) && !is_dir($bikePhotoDir)) {
     fwrite(STDERR, "Map voor fietsafbeeldingen kon niet worden aangemaakt.\n");
