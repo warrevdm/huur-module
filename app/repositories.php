@@ -27,7 +27,7 @@ function all_bikes(bool $includeInactive = true): array
     if (!$includeInactive) {
         $sql .= " WHERE status != 'inactive'";
     }
-    $sql .= ' ORDER BY category, name';
+    $sql .= ' ORDER BY category, name, code';
     return db()->query($sql)->fetchAll();
 }
 
@@ -38,19 +38,33 @@ function find_bike(int $id): ?array
     return $stmt->fetch() ?: null;
 }
 
+function reservation_bikes(int $reservationId): array
+{
+    $stmt = db()->prepare(
+        'SELECT b.*, rb.daily_rate AS reserved_daily_rate
+         FROM reservation_bikes rb
+         JOIN bikes b ON b.id = rb.bike_id
+         WHERE rb.reservation_id = :reservation_id
+         ORDER BY b.category, b.name, b.code'
+    );
+    $stmt->execute([':reservation_id' => $reservationId]);
+    return $stmt->fetchAll();
+}
+
 function reservations_for_range(DateTimeImmutable $start, DateTimeImmutable $end): array
 {
     $stmt = db()->prepare(
-        "SELECT r.*, b.name AS bike_name, b.code AS bike_code, c.name AS customer_name,
-                d.id AS document_id
+        "SELECT r.*, rb.bike_id, b.name AS bike_name, b.code AS bike_code,
+                b.status AS bike_status, c.name AS customer_name, d.id AS document_id
          FROM reservations r
-         JOIN bikes b ON b.id = r.bike_id
+         JOIN reservation_bikes rb ON rb.reservation_id = r.id
+         JOIN bikes b ON b.id = rb.bike_id
          JOIN customers c ON c.id = r.customer_id
          LEFT JOIN identity_documents d ON d.id = r.identity_document_id AND d.deleted_at IS NULL
          WHERE r.start_at < :range_end
            AND r.end_at > :range_start
            AND r.status != 'cancelled'
-         ORDER BY r.bike_id, r.start_at"
+         ORDER BY rb.bike_id, r.start_at"
     );
     $stmt->execute([
         ':range_start' => $start->format('Y-m-d H:i:s'),
@@ -62,7 +76,7 @@ function reservations_for_range(DateTimeImmutable $start, DateTimeImmutable $end
 function find_reservation(int $id): ?array
 {
     $stmt = db()->prepare(
-        'SELECT r.*, b.name AS bike_name, b.code AS bike_code, b.category AS bike_category,
+        'SELECT r.*,
                 c.name AS customer_name, c.email AS customer_email, c.phone AS customer_phone,
                 c.address AS customer_address, d.id AS document_id, d.original_name AS document_name,
                 d.mime_type AS document_mime, d.size_bytes AS document_size, d.retention_until,
@@ -70,7 +84,6 @@ function find_reservation(int $id): ?array
                 creator.name AS created_by_name, creator.email AS created_by_email,
                 closer.name AS closed_by_name, closer.email AS closed_by_email
          FROM reservations r
-         JOIN bikes b ON b.id = r.bike_id
          JOIN customers c ON c.id = r.customer_id
          LEFT JOIN identity_documents d ON d.id = r.identity_document_id
          LEFT JOIN users creator ON creator.id = r.created_by
@@ -78,29 +91,110 @@ function find_reservation(int $id): ?array
          WHERE r.id = :id'
     );
     $stmt->execute([':id' => $id]);
-    return $stmt->fetch() ?: null;
+    $reservation = $stmt->fetch();
+    if (!$reservation) {
+        return null;
+    }
+
+    $bikes = reservation_bikes($id);
+    if (!$bikes) {
+        $legacyBike = find_bike((int) $reservation['bike_id']);
+        $bikes = $legacyBike ? [$legacyBike + ['reserved_daily_rate' => $legacyBike['daily_rate']]] : [];
+    }
+
+    $reservation['bikes'] = $bikes;
+    $first = $bikes[0] ?? [];
+    $reservation['bike_name'] = $first['name'] ?? 'Onbekende fiets';
+    $reservation['bike_code'] = $first['code'] ?? '—';
+    $reservation['bike_category'] = $first['category'] ?? '—';
+    $reservation['bike_frame_size'] = $first['frame_size'] ?? null;
+    $reservation['daily_rate'] = array_sum(array_map(
+        static fn (array $bike): float => (float) ($bike['reserved_daily_rate'] ?? $bike['daily_rate'] ?? 0),
+        $bikes
+    ));
+    $reservation['bike_summary'] = implode(', ', array_map(
+        static fn (array $bike): string => (string) $bike['code'] . ' — ' . (string) $bike['name'],
+        $bikes
+    ));
+
+    return $reservation;
 }
 
 function reservation_conflicts(int $bikeId, string $startAt, string $endAt, ?int $excludeId = null): bool
 {
-    $sql = "SELECT 1 FROM reservations
-            WHERE bike_id = :bike_id
-              AND status NOT IN ('cancelled', 'returned')
-              AND start_at < :end_at
-              AND end_at > :start_at";
+    $sql = "SELECT 1
+            FROM reservation_bikes rb
+            JOIN reservations r ON r.id = rb.reservation_id
+            WHERE rb.bike_id = :bike_id
+              AND r.status NOT IN ('cancelled', 'returned')
+              AND r.start_at < :end_at
+              AND r.end_at > :start_at";
     $params = [
         ':bike_id' => $bikeId,
         ':start_at' => $startAt,
         ':end_at' => $endAt,
     ];
     if ($excludeId !== null) {
-        $sql .= ' AND id != :exclude_id';
+        $sql .= ' AND r.id != :exclude_id';
         $params[':exclude_id'] = $excludeId;
     }
     $sql .= ' LIMIT 1';
     $stmt = db()->prepare($sql);
     $stmt->execute($params);
     return (bool) $stmt->fetchColumn();
+}
+
+function bike_availability(string $startAt, string $endAt, ?int $excludeReservationId = null): array
+{
+    $result = [];
+    foreach (all_bikes(true) as $bike) {
+        $available = (string) $bike['status'] === 'active';
+        $reason = match ((string) $bike['status']) {
+            'maintenance' => 'In onderhoud',
+            'inactive' => 'Inactief',
+            default => null,
+        };
+
+        if ($available && reservation_conflicts((int) $bike['id'], $startAt, $endAt, $excludeReservationId)) {
+            $available = false;
+            $reason = 'Al gereserveerd in deze periode';
+        }
+
+        $result[(int) $bike['id']] = [
+            'available' => $available,
+            'reason' => $reason,
+            'status' => (string) $bike['status'],
+        ];
+    }
+    return $result;
+}
+
+function reservation_payments(int $reservationId): array
+{
+    $stmt = db()->prepare(
+        'SELECT p.*, u.name AS recorded_by_name, u.email AS recorded_by_email
+         FROM payment_logs p
+         LEFT JOIN users u ON u.id = p.recorded_by
+         WHERE p.reservation_id = :reservation_id
+         ORDER BY p.paid_at DESC, p.id DESC'
+    );
+    $stmt->execute([':reservation_id' => $reservationId]);
+    return $stmt->fetchAll();
+}
+
+function reservation_payment_summary(int $reservationId, float $totalPrice): array
+{
+    $stmt = db()->prepare('SELECT COALESCE(SUM(amount), 0) FROM payment_logs WHERE reservation_id = :reservation_id');
+    $stmt->execute([':reservation_id' => $reservationId]);
+    $paid = round((float) $stmt->fetchColumn(), 2);
+    $outstanding = max(0, round($totalPrice - $paid, 2));
+
+    return [
+        'paid' => $paid,
+        'outstanding' => $outstanding,
+        'is_paid' => $totalPrice > 0 && $outstanding < 0.01,
+        'is_partial' => $paid > 0 && $outstanding >= 0.01,
+    ];
 }
 
 function reservation_counts(): array
