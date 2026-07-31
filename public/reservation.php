@@ -12,9 +12,60 @@ if (!$reservation) {
     exit('Verhuur niet gevonden.');
 }
 
+$contract = find_contract_by_reservation($id);
+
 if ((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     verify_csrf();
     $action = (string) ($_POST['action'] ?? '');
+
+    if ($action === 'update-total-price') {
+        $newTotalPrice = round((float) ($_POST['total_price'] ?? 0), 2);
+        $summary = reservation_payment_summary($id, (float) $reservation['total_price']);
+
+        if ($newTotalPrice < 0) {
+            flash('error', 'De totaalprijs kan niet negatief zijn.');
+            redirect('reservation.php?id=' . $id . '#betalingen');
+        }
+        if (!empty($contract['signed_at'])) {
+            flash('error', 'De totaalprijs kan niet meer worden gewijzigd nadat het contract ondertekend is.');
+            redirect('reservation.php?id=' . $id . '#betalingen');
+        }
+        if ($newTotalPrice + 0.009 < (float) $summary['paid']) {
+            flash('error', 'De totaalprijs kan niet lager zijn dan het reeds betaalde bedrag.');
+            redirect('reservation.php?id=' . $id . '#betalingen');
+        }
+
+        db()->beginTransaction();
+        try {
+            $stmt = db()->prepare('UPDATE reservations SET total_price = :total_price, updated_at = CURRENT_TIMESTAMP WHERE id = :id');
+            $stmt->execute([
+                ':total_price' => $newTotalPrice,
+                ':id' => $id,
+            ]);
+
+            if ($contract && empty($contract['signed_at'])) {
+                $stmt = db()->prepare('DELETE FROM rental_contracts WHERE id = :id');
+                $stmt->execute([':id' => (int) $contract['id']]);
+                unset($_SESSION['contract_tokens'][(int) $contract['id']]);
+            }
+
+            db()->commit();
+        } catch (Throwable $e) {
+            if (db()->inTransaction()) {
+                db()->rollBack();
+            }
+            flash('error', 'De totaalprijs kon niet worden opgeslagen.');
+            redirect('reservation.php?id=' . $id . '#betalingen');
+        }
+
+        audit('update_total_price', 'reservation', $id, [
+            'old_total_price' => (float) $reservation['total_price'],
+            'new_total_price' => $newTotalPrice,
+            'unsigned_contract_reset' => $contract && empty($contract['signed_at']),
+        ]);
+        flash('success', 'Totaalprijs bijgewerkt. Een niet-ondertekend contract wordt opnieuw opgebouwd met de nieuwe prijs.');
+        redirect('reservation.php?id=' . $id . '#betalingen');
+    }
 
     if ($action === 'add-payment') {
         $amount = round((float) ($_POST['amount'] ?? 0), 2);
@@ -24,15 +75,15 @@ if ((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 
         if ($amount <= 0 || !in_array($method, ['bancontact', 'cash'], true)) {
             flash('error', 'Vul een positief bedrag in en kies Bancontact of cash.');
-            redirect('reservation.php?id=' . $id);
+            redirect('reservation.php?id=' . $id . '#betalingen');
         }
         if ((float) $reservation['total_price'] <= 0) {
-            flash('error', 'Stel eerst een totaalprijs in voordat je een betaling registreert.');
-            redirect('reservation.php?id=' . $id);
+            flash('error', 'Stel eerst de totaalprijs in voordat je een betaling registreert.');
+            redirect('reservation.php?id=' . $id . '#betalingen');
         }
         if ($amount - (float) $summary['outstanding'] > 0.009) {
             flash('error', 'Het bedrag is hoger dan het openstaande saldo.');
-            redirect('reservation.php?id=' . $id);
+            redirect('reservation.php?id=' . $id . '#betalingen');
         }
 
         $stmt = db()->prepare(
@@ -53,7 +104,7 @@ if ((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             'method' => $method,
         ]);
         flash('success', 'Betaling geregistreerd in het betalingslog.');
-        redirect('reservation.php?id=' . $id);
+        redirect('reservation.php?id=' . $id . '#betalingen');
     }
 }
 
@@ -71,7 +122,10 @@ render_header('Verhuur #' . $id);
                 <h2><?= e((string) $reservation['bike_summary']) ?></h2>
                 <p class="muted"><?= count($reservation['bikes']) ?> fiets(en) in dit dossier</p>
             </div>
-            <span class="badge status-<?= e((string) $reservation['status']) ?>"><?= e(status_label((string) $reservation['status'])) ?></span>
+            <div class="actions">
+                <a class="button button-secondary" href="#betalingen">Betaling registreren</a>
+                <span class="badge status-<?= e((string) $reservation['status']) ?>"><?= e(status_label((string) $reservation['status'])) ?></span>
+            </div>
         </div>
 
         <div class="reservation-bike-list">
@@ -127,11 +181,11 @@ render_header('Verhuur #' . $id);
         <?php endif; ?>
     </aside>
 
-    <div class="card col-12 payment-card">
+    <div class="card col-12 payment-card" id="betalingen">
         <div class="actions actions-between">
             <div>
-                <h2>Betalingslog</h2>
-                <p class="muted">Elke betaling wordt met betaalwijze, medewerker en tijdstip bewaard.</p>
+                <h2>Betalingen registreren</h2>
+                <p class="muted">Log iedere betaling rechtstreeks op deze reservatie, met betaalwijze, medewerker, datum en uur.</p>
             </div>
             <?php if ($paymentSummary['is_paid']): ?>
                 <span class="payment-state payment-paid">Volledig afgerekend</span>
@@ -148,8 +202,39 @@ render_header('Verhuur #' . $id);
             <div><span>Openstaand</span><strong>€ <?= number_format((float) $paymentSummary['outstanding'], 2, ',', '.') ?></strong></div>
         </div>
 
+        <?php if (empty($contract['signed_at'])): ?>
+            <form method="post" class="payment-price-form mt-18">
+                <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
+                <input type="hidden" name="id" value="<?= $id ?>">
+                <input type="hidden" name="action" value="update-total-price">
+                <div class="field">
+                    <label>Totaalprijs reservatie</label>
+                    <input name="total_price" type="number" min="<?= e(number_format((float) $paymentSummary['paid'], 2, '.', '')) ?>" step="0.01" value="<?= e(number_format((float) $reservation['total_price'], 2, '.', '')) ?>" required>
+                </div>
+                <button class="button button-secondary" type="submit">Totaalprijs opslaan</button>
+                <span class="help">Een bestaand maar nog niet ondertekend contract wordt opnieuw opgebouwd met de nieuwe prijs.</span>
+            </form>
+        <?php endif; ?>
+
+        <?php if (!$paymentSummary['is_paid'] && (float) $reservation['total_price'] > 0): ?>
+            <form method="post" class="payment-entry-form mt-18">
+                <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
+                <input type="hidden" name="id" value="<?= $id ?>">
+                <input type="hidden" name="action" value="add-payment">
+                <div class="field"><label>Te registreren bedrag</label><input name="amount" type="number" min="0.01" max="<?= e(number_format((float) $paymentSummary['outstanding'], 2, '.', '')) ?>" step="0.01" value="<?= e(number_format((float) $paymentSummary['outstanding'], 2, '.', '')) ?>" required></div>
+                <div class="field"><label>Betaalwijze</label><select name="method" required><option value="bancontact">Bancontact</option><option value="cash">Cash</option></select></div>
+                <div class="field"><label>Notitie</label><input name="note" placeholder="Bijvoorbeeld voorschot of restbetaling"></div>
+                <button class="button" type="submit">Betaling registreren</button>
+            </form>
+        <?php elseif ((float) $reservation['total_price'] <= 0): ?>
+            <div class="alert alert-warning mt-18">Stel hierboven eerst de totaalprijs in om een betaling te kunnen registreren.</div>
+        <?php else: ?>
+            <div class="alert alert-success mt-18">Deze reservatie is volledig afgerekend. Nieuwe betalingen zijn geblokkeerd om dubbel registreren te voorkomen.</div>
+        <?php endif; ?>
+
+        <h3 class="mt-18">Betalingshistoriek</h3>
         <?php if ($payments): ?>
-            <div class="table-wrap mt-18"><table>
+            <div class="table-wrap"><table>
                 <thead><tr><th>Datum</th><th>Bedrag</th><th>Betaalwijze</th><th>Geregistreerd door</th><th>Notitie</th></tr></thead>
                 <tbody><?php foreach ($payments as $payment): ?>
                     <tr>
@@ -162,19 +247,7 @@ render_header('Verhuur #' . $id);
                 <?php endforeach; ?></tbody>
             </table></div>
         <?php else: ?>
-            <div class="alert alert-warning mt-18">Nog geen betaling geregistreerd.</div>
-        <?php endif; ?>
-
-        <?php if (!$paymentSummary['is_paid'] && (float) $reservation['total_price'] > 0): ?>
-            <form method="post" class="payment-entry-form mt-18">
-                <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
-                <input type="hidden" name="id" value="<?= $id ?>">
-                <input type="hidden" name="action" value="add-payment">
-                <div class="field"><label>Bedrag</label><input name="amount" type="number" min="0.01" max="<?= e(number_format((float) $paymentSummary['outstanding'], 2, '.', '')) ?>" step="0.01" value="<?= e(number_format((float) $paymentSummary['outstanding'], 2, '.', '')) ?>" required></div>
-                <div class="field"><label>Betaalwijze</label><select name="method" required><option value="bancontact">Bancontact</option><option value="cash">Cash</option></select></div>
-                <div class="field"><label>Notitie</label><input name="note" placeholder="Optioneel"></div>
-                <button class="button" type="submit">Betaling registreren</button>
-            </form>
+            <div class="alert alert-warning">Nog geen betaling geregistreerd.</div>
         <?php endif; ?>
     </div>
 
