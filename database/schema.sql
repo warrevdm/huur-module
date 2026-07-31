@@ -16,6 +16,11 @@ CREATE TABLE IF NOT EXISTS bikes (
     name TEXT NOT NULL,
     category TEXT NOT NULL,
     frame_size TEXT,
+    frame_number TEXT,
+    photo_stored_name TEXT,
+    photo_original_name TEXT,
+    photo_mime_type TEXT,
+    photo_size_bytes INTEGER,
     daily_rate REAL NOT NULL DEFAULT 0,
     status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'maintenance', 'inactive')),
     notes TEXT,
@@ -92,6 +97,7 @@ CREATE INDEX IF NOT EXISTS idx_reservations_status ON reservations(status);
 CREATE INDEX IF NOT EXISTS idx_documents_retention ON identity_documents(retention_until, deleted_at);
 CREATE INDEX IF NOT EXISTS idx_contracts_signed ON rental_contracts(signed_at);
 CREATE INDEX IF NOT EXISTS idx_contracts_email_status ON rental_contracts(email_status);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_bikes_frame_number_unique ON bikes(frame_number) WHERE frame_number IS NOT NULL AND frame_number != '';
 
 CREATE TABLE IF NOT EXISTS audit_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
