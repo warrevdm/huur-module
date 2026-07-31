@@ -7,6 +7,9 @@ PHP 8.2-module voor interne fietsverhuur, planning, contractopmaak, elektronisch
 - Horizontale agenda met één rij per fiets en verhuurblokken over meerdere dagen.
 - Reservaties met klantgegevens, afhaal- en retourmoment, prijs, notities en status.
 - Server-side blokkering van overlappende reservaties voor dezelfde fiets.
+- Fietsbeheer met unieke interne code, uniek framenummer, framemaat, status en foto.
+- Veilige fietsafbeeldingen buiten de publieke webmap, uitsluitend zichtbaar na aanmelden.
+- Bestaande fietsen kunnen worden bijgewerkt en foto's kunnen worden vervangen of verwijderd.
 - Automatische huurovereenkomst na het opslaan van een reservatie.
 - Publieke ondertekenpagina met handtekeningvak, naam, akkoordcheckbox en een willekeurige beveiligingstoken.
 - Bewijsregistratie met contracthash, ondertekenmoment, IP-adres en user-agent.
@@ -24,17 +27,16 @@ PHP 8.2-module voor interne fietsverhuur, planning, contractopmaak, elektronisch
 - HTTPS in productie
 - De document root moet naar `public/` wijzen
 
-## Bestaande lokale installatie bijwerken
+## Bestaande lokale of online installatie bijwerken
 
-```powershell
-# Stop eerst de PHP-server met Ctrl+C
+```bash
 git pull origin agent/initial-rental-module
-composer install
+composer install --no-dev --optimize-autoloader
 php bin/setup.php
-php -S localhost:8080 -t public
+chmod -R 775 storage
 ```
 
-`php bin/setup.php` verwijdert geen bestaande reservaties. Het maakt de nieuwe contracttabel aan wanneer die nog ontbreekt.
+`php bin/setup.php` verwijdert geen bestaande reservaties of fietsen. Het voegt ontbrekende tabellen en fietskolommen toe en maakt `storage/private/bikes/` aan.
 
 ## Nieuwe installatie
 
@@ -46,6 +48,25 @@ php -S localhost:8080 -t public
 ```
 
 Open `http://localhost:8080`.
+
+## Fietsidentificatie
+
+Open **Fietsen** in de navigatie. Per fiets kunnen worden bijgehouden:
+
+- interne code;
+- naam en model;
+- uniek framenummer;
+- categorie en framemaat;
+- dagprijs en status;
+- JPG-, PNG- of WebP-afbeelding.
+
+De standaardlimiet voor afbeeldingen is 8 MB en kan in `.env` worden aangepast:
+
+```dotenv
+BIKE_IMAGE_MAX_MB=8
+```
+
+Afbeeldingen worden opgeslagen onder `storage/private/bikes/` en via een beveiligde route aan ingelogde medewerkers getoond. Ze staan niet rechtstreeks in de publieke webmap en worden niet naar GitHub gepusht.
 
 ## Contractflow
 
@@ -110,5 +131,6 @@ Maak een kopie van een identiteitskaart niet verplicht zonder concrete wettelijk
 - `index.php?route=planning`
 - `index.php?route=reservation-new`
 - `index.php?route=reservation-view&id=1`
+- `bikes.php`
 - `contract.php?reservation_id=1`
 - `sign.php?token=...`
