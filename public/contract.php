@@ -16,10 +16,10 @@ $contract = find_contract_by_reservation($reservationId);
 if (!$contract) {
     try {
         $contract = create_contract_for_reservation($reservationId);
-        flash('success', 'Contract is opgemaakt en klaar voor ondertekening.');
+        flash('success', 'Gezamenlijk contract is opgemaakt en klaar voor ondertekening.');
     } catch (Throwable $e) {
         flash('error', $e instanceof RuntimeException ? $e->getMessage() : 'Contract opmaken is mislukt.');
-        redirect('index.php?route=reservation-view&id=' . $reservationId);
+        redirect('reservation.php?id=' . $reservationId);
     }
 }
 
@@ -70,8 +70,8 @@ render_header('Contract ' . (string) $contract['contract_number']);
     <div class="card col-8">
         <div class="actions actions-between">
             <div>
-                <h2><?= e($reservation['bike_code'] . ' — ' . $reservation['bike_name']) ?></h2>
-                <p class="muted"><?= e($reservation['customer_name']) ?> · <?= e($reservation['customer_email']) ?></p>
+                <h2><?= e((string) $reservation['bike_summary']) ?></h2>
+                <p class="muted"><?= count($reservation['bikes']) ?> fiets(en) · <?= e((string) $reservation['customer_name']) ?> · <?= e((string) $reservation['customer_email']) ?></p>
             </div>
             <?php if (!empty($contract['signed_at'])): ?>
                 <span class="badge status-confirmed">Ondertekend</span>
@@ -121,7 +121,7 @@ render_header('Contract ' . (string) $contract['contract_number']);
         <?php endif; ?>
 
         <hr>
-        <a href="index.php?route=reservation-view&amp;id=<?= $reservationId ?>">← Terug naar verhuur</a>
+        <a href="reservation.php?id=<?= $reservationId ?>">← Terug naar verhuur</a>
     </aside>
 </section>
 <?php render_footer();
