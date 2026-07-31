@@ -10,6 +10,7 @@ function render_header(string $title, bool $showNav = true): void
     $stylesVersion = is_file(ROOT_PATH . '/public/assets/styles.css') ? (string) filemtime(ROOT_PATH . '/public/assets/styles.css') : '1';
     $planningStatusVersion = is_file(ROOT_PATH . '/public/assets/planning-status.css') ? (string) filemtime(ROOT_PATH . '/public/assets/planning-status.css') : '1';
     $contractVersion = is_file(ROOT_PATH . '/public/assets/contract.css') ? (string) filemtime(ROOT_PATH . '/public/assets/contract.css') : '1';
+    $brandingVersion = is_file(ROOT_PATH . '/public/assets/branding.css') ? (string) filemtime(ROOT_PATH . '/public/assets/branding.css') : '1';
     ?>
     <!doctype html>
     <html lang="nl-BE">
@@ -17,14 +18,19 @@ function render_header(string $title, bool $showNav = true): void
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title><?= e($title) ?> · <?= e($appName) ?></title>
+        <link rel="icon" href="assets/aerts-action-bike-logo.svg" type="image/svg+xml">
         <link rel="stylesheet" href="assets/styles.css?v=<?= e($stylesVersion) ?>">
         <link rel="stylesheet" href="assets/planning-status.css?v=<?= e($planningStatusVersion) ?>">
         <link rel="stylesheet" href="assets/contract.css?v=<?= e($contractVersion) ?>">
+        <link rel="stylesheet" href="assets/branding.css?v=<?= e($brandingVersion) ?>">
     </head>
     <body>
     <?php if ($showNav && $user): ?>
         <header class="topbar">
-            <a class="brand" href="planning.php"><?= e($appName) ?></a>
+            <a class="brand" href="planning.php" aria-label="<?= e($appName) ?>">
+                <img src="assets/aerts-action-bike-logo.svg" alt="Aerts Action Bike">
+                <span class="sr-only"><?= e($appName) ?></span>
+            </a>
             <nav>
                 <a href="planning.php">Planning</a>
                 <a href="reservation-new.php">Nieuwe verhuur</a>
