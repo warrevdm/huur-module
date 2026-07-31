@@ -15,7 +15,7 @@ require_once __DIR__ . '/security.php';
 require_once __DIR__ . '/repositories.php';
 require_once __DIR__ . '/views.php';
 require_once __DIR__ . '/mailer.php';
-require_once __DIR__ . '/contracts.php';
+require_once __DIR__ . '/contracts_v2.php';
 require_once __DIR__ . '/reservation_status.php';
 
 load_env(ROOT_PATH . '/.env');
@@ -41,21 +41,32 @@ header('X-Frame-Options: DENY');
 header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: same-origin');
 header("Permissions-Policy: camera=(), microphone=(), geolocation=()");
-header("Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'");
+header("Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'");
 
-if (
-    PHP_SAPI !== 'cli'
-    && basename((string) ($_SERVER['SCRIPT_NAME'] ?? '')) === 'index.php'
-    && (string) ($_GET['route'] ?? '') === 'reservation-status'
-    && (string) ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST'
-) {
-    handle_reservation_status_request();
-}
+if (PHP_SAPI !== 'cli' && basename((string) ($_SERVER['SCRIPT_NAME'] ?? '')) === 'index.php') {
+    $route = (string) ($_GET['route'] ?? '');
+    $method = (string) ($_SERVER['REQUEST_METHOD'] ?? 'GET');
 
-if (
-    PHP_SAPI !== 'cli'
-    && basename((string) ($_SERVER['SCRIPT_NAME'] ?? '')) === 'index.php'
-    && (string) ($_GET['route'] ?? '') === 'bikes'
-) {
-    redirect('bikes.php');
+    if ($route === 'reservation-status' && $method === 'POST') {
+        handle_reservation_status_request();
+    }
+
+    if ($method === 'GET') {
+        $query = $_GET;
+        unset($query['route']);
+        $suffix = $query ? '?' . http_build_query($query) : '';
+
+        if ($route === '' || $route === 'planning') {
+            redirect('planning.php' . $suffix);
+        }
+        if ($route === 'reservation-new') {
+            redirect('reservation-new.php' . $suffix);
+        }
+        if ($route === 'reservation-view') {
+            redirect('reservation.php' . $suffix);
+        }
+        if ($route === 'bikes') {
+            redirect('bikes.php' . $suffix);
+        }
+    }
 }
