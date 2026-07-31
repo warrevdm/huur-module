@@ -1,0 +1,15 @@
+{
+  "name": "warrevdm/huur-module",
+  "description": "Interne verhuurplanning voor Aerts Action Bike",
+  "type": "project",
+  "require": {
+    "php": ">=8.2",
+    "ext-pdo": "*",
+    "ext-fileinfo": "*"
+  },
+  "scripts": {
+    "setup": "php bin/setup.php",
+    "serve": "php -S localhost:8080 -t public",
+    "purge-ids": "php bin/purge-id-documents.php"
+  }
+}
