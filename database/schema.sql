@@ -97,7 +97,6 @@ CREATE TABLE IF NOT EXISTS rental_contracts (
 
 CREATE INDEX IF NOT EXISTS idx_reservations_bike_dates ON reservations(bike_id, start_at, end_at);
 CREATE INDEX IF NOT EXISTS idx_reservations_status ON reservations(status);
-CREATE INDEX IF NOT EXISTS idx_reservations_closed_at ON reservations(closed_at);
 CREATE INDEX IF NOT EXISTS idx_documents_retention ON identity_documents(retention_until, deleted_at);
 CREATE INDEX IF NOT EXISTS idx_contracts_signed ON rental_contracts(signed_at);
 CREATE INDEX IF NOT EXISTS idx_contracts_email_status ON rental_contracts(email_status);
