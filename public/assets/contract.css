@@ -1,3 +1,5 @@
+@import url("branding.css");
+
 .contract-page { background: #eef3ee; }
 .public-contract-header {
     display: flex;
