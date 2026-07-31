@@ -5,7 +5,11 @@
   "require": {
     "php": ">=8.2",
     "ext-pdo": "*",
-    "ext-fileinfo": "*"
+    "ext-fileinfo": "*",
+    "ext-dom": "*",
+    "ext-mbstring": "*",
+    "dompdf/dompdf": "^3.1",
+    "phpmailer/phpmailer": "^7.1"
   },
   "scripts": {
     "setup": "php bin/setup.php",
