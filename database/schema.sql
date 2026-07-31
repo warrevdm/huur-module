@@ -64,9 +64,34 @@ CREATE TABLE IF NOT EXISTS reservations (
     FOREIGN KEY (created_by) REFERENCES users(id)
 );
 
+CREATE TABLE IF NOT EXISTS rental_contracts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    reservation_id INTEGER NOT NULL UNIQUE,
+    contract_number TEXT NOT NULL UNIQUE,
+    public_token_hash TEXT UNIQUE,
+    contract_html TEXT NOT NULL,
+    contract_hash TEXT NOT NULL,
+    signer_name TEXT,
+    signature_stored_name TEXT,
+    signed_at TEXT,
+    signer_ip TEXT,
+    signer_user_agent TEXT,
+    signed_contract_html TEXT,
+    signed_hash TEXT,
+    pdf_stored_name TEXT,
+    email_status TEXT NOT NULL DEFAULT 'pending' CHECK(email_status IN ('pending', 'logged', 'sent', 'failed')),
+    email_sent_at TEXT,
+    email_error TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (reservation_id) REFERENCES reservations(id) ON DELETE CASCADE
+);
+
 CREATE INDEX IF NOT EXISTS idx_reservations_bike_dates ON reservations(bike_id, start_at, end_at);
 CREATE INDEX IF NOT EXISTS idx_reservations_status ON reservations(status);
 CREATE INDEX IF NOT EXISTS idx_documents_retention ON identity_documents(retention_until, deleted_at);
+CREATE INDEX IF NOT EXISTS idx_contracts_signed ON rental_contracts(signed_at);
+CREATE INDEX IF NOT EXISTS idx_contracts_email_status ON rental_contracts(email_status);
 
 CREATE TABLE IF NOT EXISTS audit_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
