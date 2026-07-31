@@ -1,0 +1,85 @@
+.booking-title-row {
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-width: 0;
+}
+
+.booking-title-row > strong {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.booking-status-icons {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 4px;
+    flex: 0 0 auto;
+    overflow: visible !important;
+}
+
+.booking-status-icon {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    height: 22px;
+    padding: 2px 5px;
+    border: 1px solid rgba(0, 0, 0, .14);
+    border-radius: 6px;
+    font-style: normal;
+    font-size: .72rem;
+    font-weight: 900;
+    line-height: 1;
+    white-space: nowrap;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .06);
+}
+
+.booking-contract-signed {
+    background: #d9f1d2;
+    color: #245f21;
+}
+
+.booking-contract-open {
+    background: #fff0b8;
+    color: #684600;
+}
+
+.booking-payment-paid {
+    background: #d9f1d2;
+    color: #245f21;
+}
+
+.booking-payment-partial {
+    background: #ffe3ad;
+    color: #704400;
+}
+
+.booking-payment-open {
+    background: #fde3e3;
+    color: #842626;
+}
+
+.booking-payment-unpriced {
+    background: #e8ebed;
+    color: #586067;
+}
+
+.planning-legend .booking-status-icon {
+    min-width: 30px;
+    height: 24px;
+}
+
+@media (max-width: 800px) {
+    .booking-status-icon {
+        min-width: 26px;
+        padding-inline: 4px;
+        font-size: .68rem;
+    }
+}
