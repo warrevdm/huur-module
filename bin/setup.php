@@ -53,6 +53,15 @@ foreach ($reservationMigrations as $column => $sql) {
 
 db()->exec('CREATE INDEX IF NOT EXISTS idx_reservations_closed_at ON reservations(closed_at)');
 
+db()->exec(
+    'INSERT OR IGNORE INTO reservation_bikes (reservation_id, bike_id, daily_rate)
+     SELECT r.id, r.bike_id, COALESCE(b.daily_rate, 0)
+     FROM reservations r
+     JOIN bikes b ON b.id = r.bike_id'
+);
+
+echo "Bestaande verhuren gekoppeld aan reservation_bikes.\n";
+
 $bikePhotoDir = ROOT_PATH . '/storage/private/bikes';
 if (!is_dir($bikePhotoDir) && !mkdir($bikePhotoDir, 0770, true) && !is_dir($bikePhotoDir)) {
     fwrite(STDERR, "Map voor fietsafbeeldingen kon niet worden aangemaakt.\n");
