@@ -12,6 +12,34 @@ if ($schema === false) {
 
 db()->exec($schema);
 
+$bikeColumns = [];
+foreach (db()->query('PRAGMA table_info(bikes)')->fetchAll() as $column) {
+    $bikeColumns[(string) $column['name']] = true;
+}
+
+$bikeMigrations = [
+    'frame_number' => 'ALTER TABLE bikes ADD COLUMN frame_number TEXT',
+    'photo_stored_name' => 'ALTER TABLE bikes ADD COLUMN photo_stored_name TEXT',
+    'photo_original_name' => 'ALTER TABLE bikes ADD COLUMN photo_original_name TEXT',
+    'photo_mime_type' => 'ALTER TABLE bikes ADD COLUMN photo_mime_type TEXT',
+    'photo_size_bytes' => 'ALTER TABLE bikes ADD COLUMN photo_size_bytes INTEGER',
+];
+
+foreach ($bikeMigrations as $column => $sql) {
+    if (!isset($bikeColumns[$column])) {
+        db()->exec($sql);
+        echo "Fietskolom toegevoegd: {$column}\n";
+    }
+}
+
+db()->exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_bikes_frame_number_unique ON bikes(frame_number) WHERE frame_number IS NOT NULL AND frame_number != ''");
+
+$bikePhotoDir = ROOT_PATH . '/storage/private/bikes';
+if (!is_dir($bikePhotoDir) && !mkdir($bikePhotoDir, 0770, true) && !is_dir($bikePhotoDir)) {
+    fwrite(STDERR, "Map voor fietsafbeeldingen kon niet worden aangemaakt.\n");
+    exit(1);
+}
+
 $email = env('ADMIN_EMAIL', 'admin@example.com');
 $password = env('ADMIN_PASSWORD', 'change-me-now');
 $name = env('ADMIN_NAME', 'Beheerder');
