@@ -22,10 +22,10 @@ function render_header(string $title, bool $showNav = true): void
     <body>
     <?php if ($showNav && $user): ?>
         <header class="topbar">
-            <a class="brand" href="index.php?route=planning"><?= e($appName) ?></a>
+            <a class="brand" href="planning.php"><?= e($appName) ?></a>
             <nav>
-                <a href="index.php?route=planning">Planning</a>
-                <a href="index.php?route=reservation-new">Nieuwe verhuur</a>
+                <a href="planning.php">Planning</a>
+                <a href="reservation-new.php">Nieuwe verhuur</a>
                 <a href="bikes.php">Fietsen</a>
                 <?php if (($user['role'] ?? '') === 'admin'): ?>
                     <a href="users.php">Gebruikers</a>
@@ -42,9 +42,7 @@ function render_header(string $title, bool $showNav = true): void
         <?php foreach ($flashes as $flash): ?>
             <div class="alert alert-<?= e($flash['type']) ?>"><?= e($flash['message']) ?></div>
         <?php endforeach; ?>
-        <div class="page-heading">
-            <h1><?= e($title) ?></h1>
-        </div>
+        <div class="page-heading"><h1><?= e($title) ?></h1></div>
     <?php
 }
 
@@ -68,5 +66,24 @@ function status_label(string $status): string
         'returned' => 'Teruggebracht',
         'cancelled' => 'Geannuleerd',
         default => ucfirst($status),
+    };
+}
+
+function bike_status_label(string $status): string
+{
+    return match ($status) {
+        'active' => 'Actief',
+        'maintenance' => 'Onderhoud',
+        'inactive' => 'Inactief',
+        default => ucfirst($status),
+    };
+}
+
+function payment_method_label(string $method): string
+{
+    return match ($method) {
+        'bancontact' => 'Bancontact',
+        'cash' => 'Cash',
+        default => ucfirst($method),
     };
 }
