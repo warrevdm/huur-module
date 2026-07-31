@@ -1,0 +1,6 @@
+.env
+/storage/database.sqlite
+/storage/private/ids/*
+!/storage/private/ids/.gitkeep
+/storage/logs/*
+.DS_Store
