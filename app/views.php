@@ -15,17 +15,18 @@ function render_header(string $title, bool $showNav = true): void
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title><?= e($title) ?> · <?= e($appName) ?></title>
         <link rel="stylesheet" href="assets/styles.css">
+        <link rel="stylesheet" href="assets/contract.css">
     </head>
     <body>
     <?php if ($showNav && $user): ?>
         <header class="topbar">
-            <a class="brand" href="?route=planning"><?= e($appName) ?></a>
+            <a class="brand" href="index.php?route=planning"><?= e($appName) ?></a>
             <nav>
-                <a href="?route=planning">Planning</a>
-                <a href="?route=reservation-new">Nieuwe verhuur</a>
-                <a href="?route=bikes">Fietsen</a>
+                <a href="index.php?route=planning">Planning</a>
+                <a href="index.php?route=reservation-new">Nieuwe verhuur</a>
+                <a href="index.php?route=bikes">Fietsen</a>
             </nav>
-            <form method="post" action="?route=logout" class="logout-form">
+            <form method="post" action="index.php?route=logout" class="logout-form">
                 <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
                 <span><?= e($user['name']) ?></span>
                 <button class="button button-ghost" type="submit">Afmelden</button>
