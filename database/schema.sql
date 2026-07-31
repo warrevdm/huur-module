@@ -97,7 +97,6 @@ CREATE INDEX IF NOT EXISTS idx_reservations_status ON reservations(status);
 CREATE INDEX IF NOT EXISTS idx_documents_retention ON identity_documents(retention_until, deleted_at);
 CREATE INDEX IF NOT EXISTS idx_contracts_signed ON rental_contracts(signed_at);
 CREATE INDEX IF NOT EXISTS idx_contracts_email_status ON rental_contracts(email_status);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_bikes_frame_number_unique ON bikes(frame_number) WHERE frame_number IS NOT NULL AND frame_number != '';
 
 CREATE TABLE IF NOT EXISTS audit_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
