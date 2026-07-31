@@ -9,7 +9,7 @@ $method = (string) ($_SERVER['REQUEST_METHOD'] ?? 'GET');
 
 if ($route === 'login') {
     if (current_user()) {
-        redirect('?route=planning');
+        redirect('index.php?route=planning');
     }
 
     if ($method === 'POST') {
@@ -18,10 +18,10 @@ if ($route === 'login') {
         if ($user && password_verify((string) ($_POST['password'] ?? ''), $user['password_hash'])) {
             login_user($user);
             audit('login', 'user', (int) $user['id']);
-            redirect('?route=planning');
+            redirect('index.php?route=planning');
         }
         flash('error', 'E-mailadres of wachtwoord is niet correct.');
-        redirect('?route=login');
+        redirect('index.php?route=login');
     }
 
     render_header('Aanmelden', false); ?>
@@ -43,7 +43,7 @@ if ($route === 'logout' && $method === 'POST') {
     verify_csrf();
     audit('logout', 'user', (int) current_user()['id']);
     logout_user();
-    redirect('?route=login');
+    redirect('index.php?route=login');
 }
 
 require_auth();
@@ -69,20 +69,20 @@ if ($route === 'planning') {
     <section class="card mt-18">
         <div class="planning-toolbar">
             <div class="actions">
-                <a class="button button-secondary" href="?route=planning&amp;start=<?= e($start->modify("-{$days} days")->format('Y-m-d')) ?>&amp;days=<?= $days ?>">← Vorige</a>
-                <a class="button button-secondary" href="?route=planning&amp;days=<?= $days ?>">Vandaag</a>
-                <a class="button button-secondary" href="?route=planning&amp;start=<?= e($end->format('Y-m-d')) ?>&amp;days=<?= $days ?>">Volgende →</a>
+                <a class="button button-secondary" href="index.php?route=planning&amp;start=<?= e($start->modify("-{$days} days")->format('Y-m-d')) ?>&amp;days=<?= $days ?>">← Vorige</a>
+                <a class="button button-secondary" href="index.php?route=planning&amp;days=<?= $days ?>">Vandaag</a>
+                <a class="button button-secondary" href="index.php?route=planning&amp;start=<?= e($end->format('Y-m-d')) ?>&amp;days=<?= $days ?>">Volgende →</a>
             </div>
             <div class="actions">
-                <a href="?route=planning&amp;days=7">7 dagen</a>
-                <a href="?route=planning&amp;days=14">14 dagen</a>
-                <a href="?route=planning&amp;days=28">28 dagen</a>
-                <a class="button" href="?route=reservation-new">+ Nieuwe verhuur</a>
+                <a href="index.php?route=planning&amp;days=7">7 dagen</a>
+                <a href="index.php?route=planning&amp;days=14">14 dagen</a>
+                <a href="index.php?route=planning&amp;days=28">28 dagen</a>
+                <a class="button" href="index.php?route=reservation-new">+ Nieuwe verhuur</a>
             </div>
         </div>
         <?php if (!$bikes): ?>
             <div class="alert alert-warning">Voeg eerst een verhuurfiets toe.</div>
-            <a class="button" href="?route=bikes">Fiets toevoegen</a>
+            <a class="button" href="index.php?route=bikes">Fiets toevoegen</a>
         <?php else: ?>
             <div class="planning-wrap"><table class="planning">
                 <thead><tr><th class="bike-cell">Fiets</th>
@@ -109,9 +109,9 @@ if ($route === 'planning') {
                                 $span++;
                             }
                     ?>
-                        <td colspan="<?= $span ?>"><a class="booking-block status-<?= e($active['status']) ?>" href="?route=reservation-view&amp;id=<?= (int) $active['id'] ?>"><strong><?= e($active['customer_name']) ?></strong><span><?= e((new DateTimeImmutable($active['start_at']))->format('d/m H:i')) ?> → <?= e($activeEnd->format('d/m H:i')) ?></span><span><?= e(status_label($active['status'])) ?><?= $active['document_id'] ? ' · ID ✓' : ' · geen ID' ?></span></a></td>
+                        <td colspan="<?= $span ?>"><a class="booking-block status-<?= e($active['status']) ?>" href="index.php?route=reservation-view&amp;id=<?= (int) $active['id'] ?>"><strong><?= e($active['customer_name']) ?></strong><span><?= e((new DateTimeImmutable($active['start_at']))->format('d/m H:i')) ?> → <?= e($activeEnd->format('d/m H:i')) ?></span><span><?= e(status_label($active['status'])) ?><?= $active['document_id'] ? ' · ID ✓' : '' ?></span></a></td>
                     <?php $cursor += $span; else: ?>
-                        <td class="day-cell <?= in_array((int) $day->format('N'), [6, 7], true) ? 'weekend' : '' ?>"><a class="empty-slot" href="?route=reservation-new&amp;bike_id=<?= (int) $bike['id'] ?>&amp;start_date=<?= e($day->format('Y-m-d')) ?>" title="Nieuwe verhuur"></a></td>
+                        <td class="day-cell <?= in_array((int) $day->format('N'), [6, 7], true) ? 'weekend' : '' ?>"><a class="empty-slot" href="index.php?route=reservation-new&amp;bike_id=<?= (int) $bike['id'] ?>&amp;start_date=<?= e($day->format('Y-m-d')) ?>" title="Nieuwe verhuur"></a></td>
                     <?php $cursor++; endif; endwhile; ?></tr>
                 <?php endforeach; ?>
                 </tbody>
@@ -136,7 +136,7 @@ if ($route === 'bikes') {
 
         if (!$data[':code'] || !$data[':name'] || !$data[':category']) {
             flash('error', 'Code, naam en categorie zijn verplicht.');
-            redirect('?route=bikes');
+            redirect('index.php?route=bikes');
         }
 
         try {
@@ -147,7 +147,7 @@ if ($route === 'bikes') {
         } catch (PDOException $e) {
             flash('error', str_contains($e->getMessage(), 'UNIQUE') ? 'Deze fietscode bestaat al.' : 'Opslaan is mislukt.');
         }
-        redirect('?route=bikes');
+        redirect('index.php?route=bikes');
     }
 
     $bikes = all_bikes(true);
@@ -182,15 +182,16 @@ if ($route === 'reservation-new') {
         $startAt = parse_datetime((string) ($_POST['start_date'] ?? ''), (string) ($_POST['start_time'] ?? ''));
         $endAt = parse_datetime((string) ($_POST['end_date'] ?? ''), (string) ($_POST['end_time'] ?? ''));
         $name = trim((string) ($_POST['customer_name'] ?? ''));
+        $email = trim((string) ($_POST['customer_email'] ?? ''));
 
-        if (!$bikeId || !$startAt || !$endAt || $endAt <= $startAt || !$name) {
-            flash('error', 'Vul alle verplichte velden correct in.');
-            redirect('?route=reservation-new');
+        if (!$bikeId || !$startAt || !$endAt || $endAt <= $startAt || !$name || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            flash('error', 'Vul alle verplichte velden en een geldig e-mailadres correct in.');
+            redirect('index.php?route=reservation-new');
         }
 
         if (reservation_conflicts($bikeId, $startAt->format('Y-m-d H:i:s'), $endAt->format('Y-m-d H:i:s'))) {
             flash('error', 'Deze fiets is al ingepland binnen dit tijdsblok.');
-            redirect('?route=reservation-new&amp;bike_id=' . $bikeId . '&amp;start_date=' . $startAt->format('Y-m-d'));
+            redirect('index.php?route=reservation-new&bike_id=' . $bikeId . '&start_date=' . $startAt->format('Y-m-d'));
         }
 
         try {
@@ -198,7 +199,7 @@ if ($route === 'reservation-new') {
             $stmt = db()->prepare('INSERT INTO customers (name,email,phone,address) VALUES (:name,:email,:phone,:address)');
             $stmt->execute([
                 ':name' => $name,
-                ':email' => trim((string) ($_POST['customer_email'] ?? '')) ?: null,
+                ':email' => $email,
                 ':phone' => trim((string) ($_POST['customer_phone'] ?? '')) ?: null,
                 ':address' => trim((string) ($_POST['customer_address'] ?? '')) ?: null,
             ]);
@@ -220,14 +221,14 @@ if ($route === 'reservation-new') {
             $id = (int) db()->lastInsertId();
             db()->commit();
             audit('create', 'reservation', $id, ['bike_id' => $bikeId, 'has_identity_document' => $documentId !== null]);
-            flash('success', 'Verhuur is ingepland.');
-            redirect('?route=reservation-view&amp;id=' . $id);
+            flash('success', 'Verhuur is ingepland. Controleer nu het contract en laat de klant tekenen.');
+            redirect('contract.php?reservation_id=' . $id);
         } catch (Throwable $e) {
             if (db()->inTransaction()) {
                 db()->rollBack();
             }
             flash('error', $e instanceof RuntimeException ? $e->getMessage() : 'Opslaan is mislukt.');
-            redirect('?route=reservation-new');
+            redirect('index.php?route=reservation-new');
         }
     }
 
@@ -244,9 +245,9 @@ if ($route === 'reservation-new') {
         <hr><h2>Klantgegevens</h2><div class="form-grid">
             <div class="field"><label>Volledige naam *</label><input name="customer_name" required></div>
             <div class="field"><label>Telefoon</label><input name="customer_phone" type="tel"></div>
-            <div class="field"><label>E-mail</label><input name="customer_email" type="email"></div>
+            <div class="field"><label>E-mail voor contractkopie *</label><input name="customer_email" type="email" required></div>
             <div class="field"><label>Adres</label><input name="customer_address"></div>
-            <div class="field field-full"><label>Identiteitsdocument</label><input name="identity_document" type="file" accept="image/jpeg,image/png,application/pdf"><span class="help">JPG, PNG of PDF · max. <?= e(env('ID_MAX_MB', '8')) ?> MB · privé opgeslagen.</span></div>
+            <div class="field field-full"><label>Identiteitsdocument (optioneel)</label><input name="identity_document" type="file" accept="image/jpeg,image/png,application/pdf"><span class="help">Gebruik bij voorkeur een visuele identiteitscontrole. Upload alleen wanneer Aerts Action Bike daarvoor een geldige wettelijke basis en bewaartermijn heeft.</span></div>
             <div class="field"><label>Automatisch verwijderen na</label><input name="retention_until" type="date" value="<?= e((new DateTimeImmutable($endDate))->modify('+' . (int) env('ID_RETENTION_DAYS', '30') . ' days')->format('Y-m-d')) ?>"></div>
         </div>
         <hr><h2>Prijs en intern</h2><div class="form-grid">
@@ -254,7 +255,7 @@ if ($route === 'reservation-new') {
             <div class="field"><label>Totaalprijs</label><input name="total_price" type="number" min="0" step="0.01" value="0"></div>
             <div class="field field-full"><label>Interne notities</label><textarea name="notes"></textarea></div>
         </div>
-        <div class="actions"><button class="button">Verhuur inplannen</button><a class="button button-secondary" href="?route=planning">Annuleren</a></div>
+        <div class="actions"><button class="button">Opslaan en contract opmaken</button><a class="button button-secondary" href="index.php?route=planning">Annuleren</a></div>
     </form></section>
     <?php render_footer(); exit;
 }
@@ -266,28 +267,37 @@ if ($route === 'reservation-view') {
         http_response_code(404);
         exit('Verhuur niet gevonden.');
     }
+    $contract = find_contract_by_reservation($id);
 
     render_header('Verhuur #' . $id); ?>
     <section class="grid">
         <div class="card col-8"><div class="actions actions-between"><h2><?= e($reservation['bike_code'] . ' — ' . $reservation['bike_name']) ?></h2><span class="badge status-<?= e($reservation['status']) ?>"><?= e(status_label($reservation['status'])) ?></span></div>
             <dl class="summary-list"><dt>Periode</dt><dd><?= e((new DateTimeImmutable($reservation['start_at']))->format('d/m/Y H:i')) ?> → <?= e((new DateTimeImmutable($reservation['end_at']))->format('d/m/Y H:i')) ?></dd><dt>Klant</dt><dd><?= e($reservation['customer_name']) ?></dd><dt>Telefoon</dt><dd><?= e($reservation['customer_phone'] ?: '—') ?></dd><dt>E-mail</dt><dd><?= e($reservation['customer_email'] ?: '—') ?></dd><dt>Adres</dt><dd><?= e($reservation['customer_address'] ?: '—') ?></dd><dt>Totaalprijs</dt><dd>€ <?= number_format((float) $reservation['total_price'], 2, ',', '.') ?></dd><dt>Notities</dt><dd><?= nl2br(e($reservation['notes'] ?: '—')) ?></dd></dl>
         </div>
-        <div class="card col-4"><h2>Identiteitsdocument</h2>
-        <?php if ($reservation['document_id'] && !$reservation['document_deleted_at']): ?>
-            <p><strong><?= e($reservation['document_name']) ?></strong><br><span class="muted"><?= e($reservation['document_mime']) ?> · <?= number_format((int) $reservation['document_size'] / 1024, 0, ',', '.') ?> KB</span></p>
-            <p class="muted">Bewaren tot <?= e($reservation['retention_until'] ? (new DateTimeImmutable($reservation['retention_until']))->format('d/m/Y') : 'niet ingesteld') ?></p>
-            <a class="button" href="?route=id-download&amp;id=<?= (int) $reservation['document_id'] ?>">Veilig openen</a>
-        <?php else: ?>
-            <p class="muted">Nog geen document gekoppeld.</p>
-            <form method="post" action="?route=id-upload&amp;reservation_id=<?= $id ?>" enctype="multipart/form-data" class="stack">
-                <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
-                <div class="field"><label>Document</label><input name="identity_document" type="file" accept="image/jpeg,image/png,application/pdf" required></div>
-                <div class="field"><label>Verwijderen na</label><input name="retention_until" type="date" value="<?= e((new DateTimeImmutable($reservation['end_at']))->modify('+' . (int) env('ID_RETENTION_DAYS', '30') . ' days')->format('Y-m-d')) ?>" required></div>
-                <button class="button">ID veilig uploaden</button>
-            </form>
-        <?php endif; ?>
+        <div class="card col-4">
+            <h2>Huurovereenkomst</h2>
+            <?php if (!$contract): ?>
+                <p class="muted">Nog geen contract opgemaakt.</p>
+                <a class="button" href="contract.php?reservation_id=<?= $id ?>">Contract opmaken</a>
+            <?php elseif (!empty($contract['signed_at'])): ?>
+                <p><span class="badge status-confirmed">Ondertekend</span></p>
+                <p class="muted">Door <?= e((string) $contract['signer_name']) ?> op <?= e((new DateTimeImmutable((string) $contract['signed_at']))->format('d/m/Y H:i')) ?>.</p>
+                <a class="button" href="contract.php?reservation_id=<?= $id ?>">Contract bekijken</a>
+            <?php else: ?>
+                <p><span class="badge status-reserved">Wacht op handtekening</span></p>
+                <a class="button" href="contract.php?reservation_id=<?= $id ?>">Naar ondertekening</a>
+            <?php endif; ?>
+            <hr>
+            <h2>Identiteitsdocument</h2>
+            <?php if ($reservation['document_id'] && !$reservation['document_deleted_at']): ?>
+                <p><strong><?= e($reservation['document_name']) ?></strong><br><span class="muted"><?= e($reservation['document_mime']) ?> · <?= number_format((int) $reservation['document_size'] / 1024, 0, ',', '.') ?> KB</span></p>
+                <p class="muted">Bewaren tot <?= e($reservation['retention_until'] ? (new DateTimeImmutable($reservation['retention_until']))->format('d/m/Y') : 'niet ingesteld') ?></p>
+                <a class="button button-secondary" href="index.php?route=id-download&amp;id=<?= (int) $reservation['document_id'] ?>">Veilig openen</a>
+            <?php else: ?>
+                <p class="muted">Geen document gekoppeld. Gebruik bij voorkeur visuele identiteitscontrole.</p>
+            <?php endif; ?>
         </div>
-        <div class="card col-12"><h2>Status wijzigen</h2><form method="post" action="?route=reservation-status&amp;id=<?= $id ?>" class="actions"><input type="hidden" name="_token" value="<?= e(csrf_token()) ?>"><select class="select-narrow" name="status"><?php foreach (['reserved', 'confirmed', 'picked_up', 'returned', 'cancelled'] as $status): ?><option value="<?= e($status) ?>" <?= $reservation['status'] === $status ? 'selected' : '' ?>><?= e(status_label($status)) ?></option><?php endforeach; ?></select><button class="button">Status opslaan</button><a class="button button-secondary" href="?route=planning&amp;start=<?= e((new DateTimeImmutable($reservation['start_at']))->format('Y-m-d')) ?>">Toon in planning</a></form></div>
+        <div class="card col-12"><h2>Status wijzigen</h2><form method="post" action="index.php?route=reservation-status&amp;id=<?= $id ?>" class="actions"><input type="hidden" name="_token" value="<?= e(csrf_token()) ?>"><select class="select-narrow" name="status"><?php foreach (['reserved', 'confirmed', 'picked_up', 'returned', 'cancelled'] as $status): ?><option value="<?= e($status) ?>" <?= $reservation['status'] === $status ? 'selected' : '' ?>><?= e(status_label($status)) ?></option><?php endforeach; ?></select><button class="button">Status opslaan</button><a class="button button-secondary" href="index.php?route=planning&amp;start=<?= e((new DateTimeImmutable($reservation['start_at']))->format('Y-m-d')) ?>">Toon in planning</a></form></div>
     </section>
     <?php render_footer(); exit;
 }
@@ -298,41 +308,18 @@ if ($route === 'reservation-status' && $method === 'POST') {
     $status = (string) ($_POST['status'] ?? '');
     if (!find_reservation($id) || !in_array($status, ['reserved', 'confirmed', 'picked_up', 'returned', 'cancelled'], true)) {
         flash('error', 'Ongeldige status.');
-        redirect('?route=planning');
+        redirect('index.php?route=planning');
     }
-    $stmt = db()->prepare('UPDATE reservations SET status=:status, updated_at=CURRENT_TIMESTAMP WHERE id=:id');
+    $stmt = db()->prepare('UPDATE reservations SET status = :status, updated_at = CURRENT_TIMESTAMP WHERE id = :id');
     $stmt->execute([':status' => $status, ':id' => $id]);
     audit('status_update', 'reservation', $id, ['status' => $status]);
     flash('success', 'Status aangepast.');
-    redirect('?route=reservation-view&amp;id=' . $id);
-}
-
-if ($route === 'id-upload' && $method === 'POST') {
-    verify_csrf();
-    $id = (int) ($_GET['reservation_id'] ?? 0);
-    $reservation = find_reservation($id);
-    if (!$reservation) {
-        flash('error', 'Verhuur niet gevonden.');
-        redirect('?route=planning');
-    }
-    try {
-        $documentId = upload_identity_document($_FILES['identity_document'] ?? [], (int) $reservation['customer_id'], (string) ($_POST['retention_until'] ?? ''));
-        if (!$documentId) {
-            throw new RuntimeException('Selecteer een document.');
-        }
-        $stmt = db()->prepare('UPDATE reservations SET identity_document_id=:document, updated_at=CURRENT_TIMESTAMP WHERE id=:id');
-        $stmt->execute([':document' => $documentId, ':id' => $id]);
-        audit('upload', 'identity_document', $documentId, ['reservation_id' => $id]);
-        flash('success', 'Identiteitsdocument gekoppeld.');
-    } catch (Throwable $e) {
-        flash('error', $e instanceof RuntimeException ? $e->getMessage() : 'Uploaden is mislukt.');
-    }
-    redirect('?route=reservation-view&amp;id=' . $id);
+    redirect('index.php?route=reservation-view&id=' . $id);
 }
 
 if ($route === 'id-download') {
     $id = (int) ($_GET['id'] ?? 0);
-    $stmt = db()->prepare('SELECT * FROM identity_documents WHERE id=:id AND deleted_at IS NULL');
+    $stmt = db()->prepare('SELECT * FROM identity_documents WHERE id = :id AND deleted_at IS NULL');
     $stmt->execute([':id' => $id]);
     $document = $stmt->fetch();
     if (!$document) {
