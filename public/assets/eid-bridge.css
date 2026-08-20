@@ -1,0 +1,62 @@
+.eid-bridge-panel {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 16px 22px;
+    align-items: center;
+    margin: 14px 0 18px;
+    padding: 16px 18px;
+    border: 1px solid #b7d7ae;
+    border-left: 5px solid var(--green);
+    border-radius: 10px;
+    background: #f3faf1;
+}
+
+.eid-bridge-copy {
+    display: grid;
+    gap: 4px;
+}
+
+.eid-bridge-copy strong {
+    font-size: .98rem;
+}
+
+.eid-bridge-copy span {
+    color: var(--muted);
+    font-size: .86rem;
+    line-height: 1.45;
+}
+
+.eid-bridge-actions {
+    display: grid;
+    justify-items: end;
+    gap: 7px;
+    min-width: 280px;
+}
+
+.eid-bridge-status {
+    max-width: 420px;
+    font-size: .78rem;
+    line-height: 1.35;
+    text-align: right;
+}
+
+.eid-bridge-status-neutral { color: var(--muted); }
+.eid-bridge-status-loading { color: #40576a; }
+.eid-bridge-status-success { color: #245f21; font-weight: 700; }
+.eid-bridge-status-error { color: #842626; font-weight: 700; }
+
+@media (max-width: 800px) {
+    .eid-bridge-panel {
+        grid-template-columns: 1fr;
+    }
+
+    .eid-bridge-actions {
+        justify-items: stretch;
+        min-width: 0;
+    }
+
+    .eid-bridge-status {
+        max-width: none;
+        text-align: left;
+    }
+}
