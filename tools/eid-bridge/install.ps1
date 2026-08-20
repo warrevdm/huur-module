@@ -4,7 +4,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-if (-not $IsWindows) {
+if ($env:OS -ne 'Windows_NT') {
     throw 'Deze installer moet op Windows worden uitgevoerd.'
 }
 
