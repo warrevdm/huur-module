@@ -41,7 +41,7 @@ header('X-Frame-Options: DENY');
 header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: same-origin');
 header("Permissions-Policy: camera=(), microphone=(), geolocation=()");
-header("Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'");
+header("Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self' http://127.0.0.1:17895 http://localhost:17895; base-uri 'self'; form-action 'self'; frame-ancestors 'none'");
 
 if (PHP_SAPI !== 'cli' && basename((string) ($_SERVER['SCRIPT_NAME'] ?? '')) === 'index.php') {
     $route = (string) ($_GET['route'] ?? '');
