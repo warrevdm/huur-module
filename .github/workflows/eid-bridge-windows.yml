@@ -7,6 +7,12 @@ on:
     paths:
       - 'tools/eid-bridge/**'
       - '.github/workflows/eid-bridge-windows.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'tools/eid-bridge/**'
+      - '.github/workflows/eid-bridge-windows.yml'
   workflow_dispatch:
 
 jobs:
