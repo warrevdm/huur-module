@@ -11,6 +11,7 @@ function render_header(string $title, bool $showNav = true): void
     $planningStatusVersion = is_file(ROOT_PATH . '/public/assets/planning-status.css') ? (string) filemtime(ROOT_PATH . '/public/assets/planning-status.css') : '1';
     $contractVersion = is_file(ROOT_PATH . '/public/assets/contract.css') ? (string) filemtime(ROOT_PATH . '/public/assets/contract.css') : '1';
     $brandingVersion = is_file(ROOT_PATH . '/public/assets/branding.css') ? (string) filemtime(ROOT_PATH . '/public/assets/branding.css') : '1';
+    $eidBridgeStyleVersion = is_file(ROOT_PATH . '/public/assets/eid-bridge.css') ? (string) filemtime(ROOT_PATH . '/public/assets/eid-bridge.css') : '1';
     ?>
     <!doctype html>
     <html lang="nl-BE">
@@ -23,6 +24,7 @@ function render_header(string $title, bool $showNav = true): void
         <link rel="stylesheet" href="assets/planning-status.css?v=<?= e($planningStatusVersion) ?>">
         <link rel="stylesheet" href="assets/contract.css?v=<?= e($contractVersion) ?>">
         <link rel="stylesheet" href="assets/branding.css?v=<?= e($brandingVersion) ?>">
+        <link rel="stylesheet" href="assets/eid-bridge.css?v=<?= e($eidBridgeStyleVersion) ?>">
     </head>
     <body>
     <?php if ($showNav && $user): ?>
@@ -57,9 +59,11 @@ function render_header(string $title, bool $showNav = true): void
 function render_footer(): void
 {
     $appVersion = is_file(ROOT_PATH . '/public/assets/app.js') ? (string) filemtime(ROOT_PATH . '/public/assets/app.js') : '1';
+    $eidBridgeVersion = is_file(ROOT_PATH . '/public/assets/eid-bridge.js') ? (string) filemtime(ROOT_PATH . '/public/assets/eid-bridge.js') : '1';
     ?>
     </main>
     <script src="assets/app.js?v=<?= e($appVersion) ?>" defer></script>
+    <script src="assets/eid-bridge.js?v=<?= e($eidBridgeVersion) ?>" defer></script>
     </body>
     </html>
     <?php
