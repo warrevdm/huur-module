@@ -104,6 +104,7 @@ CREATE TABLE IF NOT EXISTS rental_contracts (
     reservation_id INTEGER NOT NULL UNIQUE,
     contract_number TEXT NOT NULL UNIQUE,
     public_token_hash TEXT UNIQUE,
+    public_token_expires_at TEXT,
     contract_html TEXT NOT NULL,
     contract_hash TEXT NOT NULL,
     signer_name TEXT,
@@ -120,6 +121,13 @@ CREATE TABLE IF NOT EXISTS rental_contracts (
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (reservation_id) REFERENCES reservations(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS login_attempts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    bucket_type TEXT NOT NULL CHECK(bucket_type IN ('ip', 'account')),
+    bucket_key TEXT NOT NULL,
+    attempted_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS audit_logs (
@@ -141,3 +149,4 @@ CREATE INDEX IF NOT EXISTS idx_payment_logs_reservation ON payment_logs(reservat
 CREATE INDEX IF NOT EXISTS idx_documents_retention ON identity_documents(retention_until, deleted_at);
 CREATE INDEX IF NOT EXISTS idx_contracts_signed ON rental_contracts(signed_at);
 CREATE INDEX IF NOT EXISTS idx_contracts_email_status ON rental_contracts(email_status);
+CREATE INDEX IF NOT EXISTS idx_login_attempts_bucket_time ON login_attempts(bucket_type, bucket_key, attempted_at);

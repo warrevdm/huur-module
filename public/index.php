@@ -14,12 +14,33 @@ if ($route === 'login') {
 
     if ($method === 'POST') {
         verify_csrf();
-        $user = find_user_by_email((string) ($_POST['email'] ?? ''));
-        if ($user && password_verify((string) ($_POST['password'] ?? ''), $user['password_hash'])) {
+
+        $email = strtolower(trim((string) ($_POST['email'] ?? '')));
+        $password = (string) ($_POST['password'] ?? '');
+
+        if (login_is_rate_limited($email)) {
+            usleep(250000);
+            audit('login_blocked', 'user', null, [
+                'account_hash' => hash('sha256', $email),
+            ]);
+            $window = login_rate_limit_config()['window_minutes'];
+            flash('error', "Te veel mislukte aanmeldpogingen. Probeer over {$window} minuten opnieuw.");
+            redirect('index.php?route=login');
+        }
+
+        $user = find_user_by_email($email);
+        if ($user && password_verify($password, (string) $user['password_hash'])) {
+            clear_login_failures($email);
             login_user($user);
             audit('login', 'user', (int) $user['id']);
             redirect('index.php?route=planning');
         }
+
+        record_login_failure($email);
+        usleep(250000);
+        audit('login_failed', 'user', null, [
+            'account_hash' => hash('sha256', $email),
+        ]);
         flash('error', 'E-mailadres of wachtwoord is niet correct.');
         redirect('index.php?route=login');
     }

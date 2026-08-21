@@ -40,6 +40,10 @@ foreach (db()->query('PRAGMA table_info(reservations)')->fetchAll() as $column) 
 }
 
 $reservationMigrations = [
+    'eid_physical_checked' => 'ALTER TABLE reservations ADD COLUMN eid_physical_checked INTEGER NOT NULL DEFAULT 0 CHECK(eid_physical_checked IN (0,1))',
+    'eid_photo_match' => 'ALTER TABLE reservations ADD COLUMN eid_photo_match INTEGER NOT NULL DEFAULT 0 CHECK(eid_photo_match IN (0,1))',
+    'eid_checked_by' => 'ALTER TABLE reservations ADD COLUMN eid_checked_by INTEGER REFERENCES users(id)',
+    'eid_checked_at' => 'ALTER TABLE reservations ADD COLUMN eid_checked_at TEXT',
     'closed_by' => 'ALTER TABLE reservations ADD COLUMN closed_by INTEGER REFERENCES users(id)',
     'closed_at' => 'ALTER TABLE reservations ADD COLUMN closed_at TEXT',
 ];
@@ -52,6 +56,22 @@ foreach ($reservationMigrations as $column => $sql) {
 }
 
 db()->exec('CREATE INDEX IF NOT EXISTS idx_reservations_closed_at ON reservations(closed_at)');
+
+$contractColumns = [];
+foreach (db()->query('PRAGMA table_info(rental_contracts)')->fetchAll() as $column) {
+    $contractColumns[(string) $column['name']] = true;
+}
+
+$contractMigrations = [
+    'public_token_expires_at' => 'ALTER TABLE rental_contracts ADD COLUMN public_token_expires_at TEXT',
+];
+
+foreach ($contractMigrations as $column => $sql) {
+    if (!isset($contractColumns[$column])) {
+        db()->exec($sql);
+        echo "Contractkolom toegevoegd: {$column}\n";
+    }
+}
 
 db()->exec(
     'INSERT OR IGNORE INTO reservation_bikes (reservation_id, bike_id, daily_rate)

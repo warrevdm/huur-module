@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../app/bootstrap.php';
 
+header('Cache-Control: no-store, private, max-age=0');
+header('Pragma: no-cache');
+header('Referrer-Policy: no-referrer');
+header('X-Robots-Tag: noindex, nofollow, noarchive');
+
 $token = trim((string) ($_GET['token'] ?? $_POST['token'] ?? ''));
 $contract = find_contract_by_token($token);
 

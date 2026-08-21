@@ -21,12 +21,30 @@ function find_contract_by_id(int $contractId): ?array
     return $stmt->fetch() ?: null;
 }
 
+function contract_token_ttl_hours(): int
+{
+    return max(1, min(720, (int) env('CONTRACT_TOKEN_TTL_HOURS', '168')));
+}
+
+function contract_token_expires_at(): string
+{
+    return gmdate('Y-m-d H:i:s', time() + (contract_token_ttl_hours() * 3600));
+}
+
 function find_contract_by_token(string $token): ?array
 {
     if (!preg_match('/^[a-f0-9]{64}$/', $token)) {
         return null;
     }
-    $stmt = db()->prepare('SELECT * FROM rental_contracts WHERE public_token_hash = :token_hash LIMIT 1');
+
+    $stmt = db()->prepare(
+        'SELECT * FROM rental_contracts
+         WHERE public_token_hash = :token_hash
+           AND signed_at IS NULL
+           AND public_token_expires_at IS NOT NULL
+           AND public_token_expires_at > CURRENT_TIMESTAMP
+         LIMIT 1'
+    );
     $stmt->execute([':token_hash' => hash('sha256', $token)]);
     return $stmt->fetch() ?: null;
 }
@@ -39,12 +57,25 @@ function contract_number(int $reservationId): string
 function contract_issue_token(int $contractId): string
 {
     $token = bin2hex(random_bytes(32));
+    $expiresAt = contract_token_expires_at();
+
     $stmt = db()->prepare(
         'UPDATE rental_contracts
-         SET public_token_hash = :token_hash, updated_at = CURRENT_TIMESTAMP
+         SET public_token_hash = :token_hash,
+             public_token_expires_at = :expires_at,
+             updated_at = CURRENT_TIMESTAMP
          WHERE id = :id AND signed_at IS NULL'
     );
-    $stmt->execute([':token_hash' => hash('sha256', $token), ':id' => $contractId]);
+    $stmt->execute([
+        ':token_hash' => hash('sha256', $token),
+        ':expires_at' => $expiresAt,
+        ':id' => $contractId,
+    ]);
+
+    if ($stmt->rowCount() !== 1) {
+        throw new RuntimeException('Voor dit contract kan geen nieuwe ondertekenlink worden gemaakt.');
+    }
+
     $_SESSION['contract_tokens'][$contractId] = $token;
     return $token;
 }
@@ -57,7 +88,21 @@ function contract_token_for_staff(array $contract): ?string
     $contractId = (int) $contract['id'];
     $token = $_SESSION['contract_tokens'][$contractId] ?? null;
     if (is_string($token) && preg_match('/^[a-f0-9]{64}$/', $token)) {
-        return $token;
+        $stmt = db()->prepare(
+            'SELECT 1 FROM rental_contracts
+             WHERE id = :id
+               AND public_token_hash = :token_hash
+               AND signed_at IS NULL
+               AND public_token_expires_at IS NOT NULL
+               AND public_token_expires_at > CURRENT_TIMESTAMP'
+        );
+        $stmt->execute([
+            ':id' => $contractId,
+            ':token_hash' => hash('sha256', $token),
+        ]);
+        if ($stmt->fetchColumn()) {
+            return $token;
+        }
     }
     return contract_issue_token($contractId);
 }
@@ -84,16 +129,18 @@ function create_contract_for_reservation(int $reservationId): array
     $unsignedHtml = render_contract_document($reservation, $number, null);
     $contractHash = hash('sha256', $unsignedHtml);
     $token = bin2hex(random_bytes(32));
+    $tokenExpiresAt = contract_token_expires_at();
 
     $stmt = db()->prepare(
         'INSERT INTO rental_contracts
-         (reservation_id, contract_number, public_token_hash, contract_html, contract_hash, created_at, updated_at)
-         VALUES (:reservation_id, :contract_number, :token_hash, :contract_html, :contract_hash, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)'
+         (reservation_id, contract_number, public_token_hash, public_token_expires_at, contract_html, contract_hash, created_at, updated_at)
+         VALUES (:reservation_id, :contract_number, :token_hash, :token_expires_at, :contract_html, :contract_hash, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)'
     );
     $stmt->execute([
         ':reservation_id' => $reservationId,
         ':contract_number' => $number,
         ':token_hash' => hash('sha256', $token),
+        ':token_expires_at' => $tokenExpiresAt,
         ':contract_html' => $unsignedHtml,
         ':contract_hash' => $contractHash,
     ]);
@@ -264,7 +311,8 @@ function sign_contract(array $contract, string $signerName, string $signatureDat
         $stmt = db()->prepare(
             'UPDATE rental_contracts SET signer_name=:signer_name, signature_stored_name=:signature_stored_name,
              signed_at=:signed_at, signer_ip=:signer_ip, signer_user_agent=:signer_user_agent,
-             signed_contract_html=:signed_contract_html, signed_hash=:signed_hash, updated_at=CURRENT_TIMESTAMP
+             signed_contract_html=:signed_contract_html, signed_hash=:signed_hash,
+             public_token_hash=NULL, public_token_expires_at=NULL, updated_at=CURRENT_TIMESTAMP
              WHERE id=:id AND signed_at IS NULL'
         );
         $stmt->execute([

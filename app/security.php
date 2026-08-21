@@ -66,8 +66,97 @@ function logout_user(): void
     session_destroy();
 }
 
-function redirect(string $location): never
+function login_rate_limit_config(): array
 {
+    return [
+        'max_attempts' => max(3, min(20, (int) env('LOGIN_MAX_ATTEMPTS', '5'))),
+        'window_minutes' => max(5, min(60, (int) env('LOGIN_WINDOW_MINUTES', '15'))),
+    ];
+}
+
+function login_rate_limit_bucket(string $type, string $value): string
+{
+    return hash('sha256', $type . "\0" . strtolower(trim($value)));
+}
+
+function login_request_ip(): string
+{
+    $ip = substr((string) ($_SERVER['REMOTE_ADDR'] ?? ''), 0, 45);
+    return $ip !== '' ? $ip : 'unknown';
+}
+
+function login_attempt_count(string $bucketType, string $bucketKey, string $cutoff): int
+{
+    $stmt = db()->prepare(
+        'SELECT COUNT(*) FROM login_attempts
+         WHERE bucket_type = :bucket_type
+           AND bucket_key = :bucket_key
+           AND attempted_at >= :cutoff'
+    );
+    $stmt->execute([
+        ':bucket_type' => $bucketType,
+        ':bucket_key' => $bucketKey,
+        ':cutoff' => $cutoff,
+    ]);
+    return (int) $stmt->fetchColumn();
+}
+
+function login_is_rate_limited(string $email): bool
+{
+    $config = login_rate_limit_config();
+    $cutoff = gmdate('Y-m-d H:i:s', time() - ($config['window_minutes'] * 60));
+
+    $ipCount = login_attempt_count('ip', login_rate_limit_bucket('ip', login_request_ip()), $cutoff);
+
+    $accountCount = 0;
+    $email = strtolower(trim($email));
+    if ($email !== '') {
+        $accountCount = login_attempt_count('account', login_rate_limit_bucket('account', $email), $cutoff);
+    }
+
+    return $accountCount >= $config['max_attempts']
+        || $ipCount >= ($config['max_attempts'] * 3);
+}
+
+function record_login_failure(string $email): void
+{
+    $cleanup = db()->prepare('DELETE FROM login_attempts WHERE attempted_at < :cutoff');
+    $cleanup->execute([':cutoff' => gmdate('Y-m-d H:i:s', time() - 86400)]);
+
+    $stmt = db()->prepare(
+        'INSERT INTO login_attempts (bucket_type, bucket_key, attempted_at)
+         VALUES (:bucket_type, :bucket_key, CURRENT_TIMESTAMP)'
+    );
+
+    $stmt->execute([
+        ':bucket_type' => 'ip',
+        ':bucket_key' => login_rate_limit_bucket('ip', login_request_ip()),
+    ]);
+
+    $email = strtolower(trim($email));
+    if ($email !== '') {
+        $stmt->execute([
+            ':bucket_type' => 'account',
+            ':bucket_key' => login_rate_limit_bucket('account', $email),
+        ]);
+    }
+}
+
+function clear_login_failures(string $email): void
+{
+    $email = strtolower(trim($email));
+    if ($email === '') return;
+
+    $stmt = db()->prepare(
+        "DELETE FROM login_attempts
+         WHERE bucket_type = 'account' AND bucket_key = :bucket_key"
+    );
+    $stmt->execute([
+        ':bucket_key' => login_rate_limit_bucket('account', $email),
+    ]);
+}
+
+function redirect(string $location): never{
     header('Location: ' . $location);
     exit;
 }
