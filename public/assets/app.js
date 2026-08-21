@@ -22,6 +22,88 @@ document.addEventListener('DOMContentLoaded', () => {
   const priceMode = reservationForm?.querySelector('[data-price-calculation-mode]');
   let availabilityTimer = null;
 
+  const bikeCodeGroup = (option) => {
+    const code = String(option?.dataset?.bikeCode || '').trim().toUpperCase();
+    const match = code.match(/(?:^|\s)(H|V|T)\d/i);
+    return match ? match[1].toUpperCase() : 'OTHER';
+  };
+
+  const setupBikeCodeFilters = () => {
+    if (!bikeSelect || bikeSelect.dataset.codeFiltersReady === '1') return;
+
+    bikeSelect.dataset.codeFiltersReady = '1';
+
+    const filterWrap = document.createElement('div');
+    filterWrap.className = 'stack';
+    filterWrap.setAttribute('data-bike-code-filter-wrap', '');
+
+    const filterLabel = document.createElement('span');
+    filterLabel.className = 'help';
+    filterLabel.textContent = 'Snel filteren op interne code:';
+
+    const buttonRow = document.createElement('div');
+    buttonRow.className = 'actions';
+
+    const counter = document.createElement('span');
+    counter.className = 'help';
+    counter.setAttribute('data-bike-filter-counter', '');
+
+    const filters = [
+      ['ALL', 'Alles'],
+      ['H', 'H · Huurfietsen'],
+      ['V', 'V · Vervangfietsen'],
+      ['T', 'T · Testfietsen'],
+    ];
+
+    let activeFilter = 'ALL';
+
+    const applyFilter = () => {
+      let visible = 0;
+      let visibleAvailable = 0;
+
+      for (const option of Array.from(bikeSelect.options)) {
+        const matches = activeFilter === 'ALL' || bikeCodeGroup(option) === activeFilter;
+        option.hidden = !matches;
+        if (matches) {
+          visible += 1;
+          if (!option.disabled) visibleAvailable += 1;
+        }
+      }
+
+      const selected = Array.from(bikeSelect.selectedOptions).length;
+      counter.textContent = `${visible} zichtbaar · ${visibleAvailable} beschikbaar · ${selected} geselecteerd`;
+
+      for (const button of buttonRow.querySelectorAll('[data-bike-code-filter]')) {
+        const active = button.dataset.bikeCodeFilter === activeFilter;
+        button.className = active ? 'button' : 'button button-secondary';
+        button.setAttribute('aria-pressed', active ? 'true' : 'false');
+      }
+    };
+
+    for (const [value, label] of filters) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = value === 'ALL' ? 'button' : 'button button-secondary';
+      button.dataset.bikeCodeFilter = value;
+      button.textContent = label;
+      button.setAttribute('aria-pressed', value === 'ALL' ? 'true' : 'false');
+      button.addEventListener('click', () => {
+        activeFilter = value;
+        applyFilter();
+      });
+      buttonRow.appendChild(button);
+    }
+
+    filterWrap.appendChild(filterLabel);
+    filterWrap.appendChild(buttonRow);
+    filterWrap.appendChild(counter);
+    bikeSelect.parentNode.insertBefore(filterWrap, bikeSelect);
+
+    bikeSelect.addEventListener('change', applyFilter);
+    bikeSelect._applyBikeCodeFilter = applyFilter;
+    applyFilter();
+  };
+
   const euro = (value) => new Intl.NumberFormat('nl-BE', {
     style: 'currency',
     currency: 'EUR',
@@ -156,6 +238,9 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (removedCount) markPriceStale();
+      if (typeof bikeSelect._applyBikeCodeFilter === 'function') {
+        bikeSelect._applyBikeCodeFilter();
+      }
 
       if (availabilityMessage) {
         availabilityMessage.textContent = `${availableCount} fiets(en) beschikbaar.${removedCount ? ` ${removedCount} eerdere selectie(s) verwijderd omdat ze niet beschikbaar zijn.` : ''}`;
@@ -172,6 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   if (reservationForm && bikeSelect) {
+    setupBikeCodeFilters();
     reservationForm.querySelectorAll('[name="start_date"], [name="start_time"], [name="end_date"], [name="end_time"]').forEach((field) => {
       field.addEventListener('change', () => {
         markPriceStale();
