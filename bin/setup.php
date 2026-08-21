@@ -18,6 +18,7 @@ foreach (db()->query('PRAGMA table_info(bikes)')->fetchAll() as $column) {
 }
 
 $bikeMigrations = [
+    'usage_type' => "ALTER TABLE bikes ADD COLUMN usage_type TEXT NOT NULL DEFAULT 'rental' CHECK(usage_type IN ('rental', 'replacement', 'test', 'replacement_rental'))",
     'frame_number' => 'ALTER TABLE bikes ADD COLUMN frame_number TEXT',
     'photo_stored_name' => 'ALTER TABLE bikes ADD COLUMN photo_stored_name TEXT',
     'photo_original_name' => 'ALTER TABLE bikes ADD COLUMN photo_original_name TEXT',
