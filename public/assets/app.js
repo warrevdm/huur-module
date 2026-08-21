@@ -22,15 +22,62 @@ document.addEventListener('DOMContentLoaded', () => {
   const priceMode = reservationForm?.querySelector('[data-price-calculation-mode]');
   let availabilityTimer = null;
 
-  const bikeCodeGroup = (option) => {
+  const bikeCodeParts = (option) => {
     const code = String(option?.dataset?.bikeCode || '').trim().toUpperCase();
-    const match = code.match(/(?:^|\s)(H|V|T)\d/i);
-    return match ? match[1].toUpperCase() : 'OTHER';
+    const match = code.match(/(?:^|\s)(H|V|T)\s*(\d+)\b/i);
+
+    if (!match) {
+      return {
+        group: 'OTHER',
+        number: Number.MAX_SAFE_INTEGER,
+        code,
+      };
+    }
+
+    return {
+      group: match[1].toUpperCase(),
+      number: Number.parseInt(match[2], 10),
+      code,
+    };
+  };
+
+  const bikeCodeGroup = (option) => bikeCodeParts(option).group;
+
+  const sortBikeOptions = () => {
+    if (!bikeSelect) return;
+
+    const groupOrder = {
+      H: 0,
+      V: 1,
+      T: 2,
+      OTHER: 3,
+    };
+
+    const options = Array.from(bikeSelect.options);
+    options.sort((left, right) => {
+      const a = bikeCodeParts(left);
+      const b = bikeCodeParts(right);
+
+      const groupDifference = (groupOrder[a.group] ?? 99) - (groupOrder[b.group] ?? 99);
+      if (groupDifference !== 0) return groupDifference;
+
+      if (a.number !== b.number) return a.number - b.number;
+
+      return a.code.localeCompare(b.code, 'nl-BE', {
+        numeric: true,
+        sensitivity: 'base',
+      });
+    });
+
+    for (const option of options) {
+      bikeSelect.appendChild(option);
+    }
   };
 
   const setupBikeCodeFilters = () => {
     if (!bikeSelect || bikeSelect.dataset.codeFiltersReady === '1') return;
 
+    sortBikeOptions();
     bikeSelect.dataset.codeFiltersReady = '1';
 
     const filterWrap = document.createElement('div');
