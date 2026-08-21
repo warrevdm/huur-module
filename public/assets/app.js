@@ -16,7 +16,100 @@ document.addEventListener('DOMContentLoaded', () => {
   const reservationForm = document.querySelector('[data-reservation-form]');
   const bikeSelect = reservationForm?.querySelector('[data-bike-select]');
   const availabilityMessage = reservationForm?.querySelector('[data-availability-message]');
+  const priceButton = reservationForm?.querySelector('[data-calculate-rental-price]');
+  const priceBreakdown = reservationForm?.querySelector('[data-price-breakdown]');
+  const totalPrice = reservationForm?.querySelector('[data-total-price]');
+  const priceMode = reservationForm?.querySelector('[data-price-calculation-mode]');
   let availabilityTimer = null;
+
+  const euro = (value) => new Intl.NumberFormat('nl-BE', {
+    style: 'currency',
+    currency: 'EUR',
+  }).format(value);
+
+  const rentalDays = () => {
+    if (!reservationForm) return 0;
+    const startDateValue = reservationForm.querySelector('[name="start_date"]')?.value;
+    const startTimeValue = reservationForm.querySelector('[name="start_time"]')?.value;
+    const endDateValue = reservationForm.querySelector('[name="end_date"]')?.value;
+    const endTimeValue = reservationForm.querySelector('[name="end_time"]')?.value;
+    if (!startDateValue || !startTimeValue || !endDateValue || !endTimeValue) return 0;
+
+    const start = new Date(`${startDateValue}T${startTimeValue}:00`);
+    const end = new Date(`${endDateValue}T${endTimeValue}:00`);
+    const diff = end.getTime() - start.getTime();
+    if (!Number.isFinite(diff) || diff <= 0) return 0;
+    return Math.max(1, Math.ceil(diff / 86400000));
+  };
+
+  const priceForDays = (dayRate, weekRate, days) => {
+    if (days <= 0 || (dayRate <= 0 && weekRate <= 0)) return 0;
+    const fullWeeks = Math.floor(days / 7);
+    const remainingDays = days % 7;
+    return (fullWeeks * weekRate) + Math.min(remainingDays * dayRate, weekRate);
+  };
+
+  const calculateRentalPrice = () => {
+    if (!reservationForm || !bikeSelect || !priceBreakdown || !totalPrice || !priceMode) return;
+
+    const days = rentalDays();
+    const selectedOptions = Array.from(bikeSelect.selectedOptions).filter((option) => !option.disabled);
+
+    if (days <= 0) {
+      priceBreakdown.textContent = 'Kies een geldige start- en eindperiode.';
+      priceBreakdown.className = 'availability-message availability-warning';
+      priceMode.value = 'manual';
+      return;
+    }
+
+    if (selectedOptions.length === 0) {
+      priceBreakdown.textContent = 'Selecteer minstens één fiets om de verhuurprijs te berekenen.';
+      priceBreakdown.className = 'availability-message availability-warning';
+      priceMode.value = 'manual';
+      return;
+    }
+
+    const unsupported = selectedOptions.filter((option) => option.dataset.priceSupported !== '1');
+    if (unsupported.length > 0) {
+      const labels = unsupported.map((option) => option.dataset.bikeCode || option.dataset.baseLabel || 'fiets');
+      priceBreakdown.textContent = `Geen automatisch tarief voor: ${labels.join(', ')}. Vul de totaalprijs manueel in.`;
+      priceBreakdown.className = 'availability-message availability-warning';
+      priceMode.value = 'manual';
+      return;
+    }
+
+    let total = 0;
+    const lines = [];
+
+    for (const option of selectedOptions) {
+      const dayRate = Number(option.dataset.priceDay || 0);
+      const weekRate = Number(option.dataset.priceWeek || 0);
+      const price = priceForDays(dayRate, weekRate, days);
+      total += price;
+
+      const code = option.dataset.bikeCode || '';
+      const name = option.dataset.bikeName || '';
+      const label = option.dataset.priceLabel || '';
+      const detail = dayRate === 0 && weekRate === 0
+        ? 'gratis inzet'
+        : `${days} dag(en) · ${label}`;
+      lines.push(`${code}${name ? ` — ${name}` : ''}: ${detail} → ${euro(price)}`);
+    }
+
+    totalPrice.value = total.toFixed(2);
+    priceMode.value = 'auto';
+    priceBreakdown.textContent = `${lines.join(' | ')} | Totaal: ${euro(total)}`;
+    priceBreakdown.className = 'availability-message availability-success';
+  };
+
+  const markPriceStale = () => {
+    if (!priceBreakdown || !priceMode) return;
+    if (priceMode.value === 'auto') {
+      priceBreakdown.textContent = 'Periode of fietsselectie gewijzigd. Klik opnieuw op “Bereken verhuurprijs”.';
+      priceBreakdown.className = 'availability-message availability-warning';
+      priceMode.value = 'manual';
+    }
+  };
 
   const refreshAvailability = async () => {
     if (!reservationForm || !bikeSelect) return;
@@ -62,6 +155,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
 
+      if (removedCount) markPriceStale();
+
       if (availabilityMessage) {
         availabilityMessage.textContent = `${availableCount} fiets(en) beschikbaar.${removedCount ? ` ${removedCount} eerdere selectie(s) verwijderd omdat ze niet beschikbaar zijn.` : ''}`;
         availabilityMessage.className = removedCount
@@ -79,11 +174,29 @@ document.addEventListener('DOMContentLoaded', () => {
   if (reservationForm && bikeSelect) {
     reservationForm.querySelectorAll('[name="start_date"], [name="start_time"], [name="end_date"], [name="end_time"]').forEach((field) => {
       field.addEventListener('change', () => {
+        markPriceStale();
         window.clearTimeout(availabilityTimer);
         availabilityTimer = window.setTimeout(refreshAvailability, 150);
       });
     });
+    bikeSelect.addEventListener('change', markPriceStale);
     refreshAvailability();
+  }
+
+  if (priceButton) {
+    priceButton.addEventListener('click', calculateRentalPrice);
+  }
+
+  if (totalPrice && priceMode) {
+    totalPrice.addEventListener('input', () => {
+      if (priceMode.value === 'auto') {
+        priceMode.value = 'manual';
+        if (priceBreakdown) {
+          priceBreakdown.textContent = 'Totaalprijs manueel aangepast. De manuele prijs wordt opgeslagen.';
+          priceBreakdown.className = 'availability-message availability-warning';
+        }
+      }
+    });
   }
 
   const paymentMethod = document.querySelector('[data-payment-method]');
