@@ -14,6 +14,7 @@ require_once __DIR__ . '/database.php';
 require_once __DIR__ . '/security.php';
 require_once __DIR__ . '/repositories.php';
 require_once __DIR__ . '/views.php';
+require_once __DIR__ . '/pricing.php';
 require_once __DIR__ . '/mailer.php';
 require_once __DIR__ . '/contracts_v2.php';
 require_once __DIR__ . '/reservation_status.php';
