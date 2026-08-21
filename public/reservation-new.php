@@ -187,11 +187,13 @@ render_header('Nieuwe verhuur');
                     ];
                     $selected = in_array((int) $bike['id'], $selectedBikeIds, true);
                     $suffix = $state['available'] ? 'BESCHIKBAAR' : strtoupper((string) ($state['reason'] ?: 'NIET BESCHIKBAAR'));
+                    $usageType = bike_usage_type_label((string) ($bike['usage_type'] ?? 'rental'));
+                    $baseLabel = $bike['code'] . ' — ' . $bike['name'] . ' (' . $bike['category'] . ' · ' . $usageType . ')';
                 ?>
                     <option value="<?= (int) $bike['id'] ?>"
-                            data-base-label="<?= e($bike['code'] . ' — ' . $bike['name'] . ' (' . $bike['category'] . ')') ?>"
+                            data-base-label="<?= e($baseLabel) ?>"
                             <?= $selected ? 'selected' : '' ?>
-                            <?= !$state['available'] ? 'disabled' : '' ?>><?= e($bike['code'] . ' — ' . $bike['name'] . ' (' . $bike['category'] . ') · ' . $suffix) ?></option>
+                            <?= !$state['available'] ? 'disabled' : '' ?>><?= e($baseLabel . ' · ' . $suffix) ?></option>
                 <?php endforeach; ?>
             </select>
             <span class="help">Windows: houd Ctrl ingedrukt. Mac: houd Command ingedrukt. De beschikbaarheid vernieuwt automatisch bij elke datum- of uurwijziging.</span>
