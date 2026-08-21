@@ -24,6 +24,9 @@ if ($method === 'POST') {
         ':code' => strtoupper(trim((string) ($_POST['code'] ?? ''))),
         ':name' => trim((string) ($_POST['name'] ?? '')),
         ':category' => trim((string) ($_POST['category'] ?? '')),
+        ':usage_type' => in_array((string) ($_POST['usage_type'] ?? ''), ['rental', 'replacement', 'test', 'replacement_rental'], true)
+            ? (string) $_POST['usage_type']
+            : 'rental',
         ':frame_size' => trim((string) ($_POST['frame_size'] ?? '')) ?: null,
         ':frame_number' => $frameNumber ?: null,
         ':daily_rate' => max(0, (float) ($_POST['daily_rate'] ?? 0)),
@@ -56,6 +59,7 @@ if ($method === 'POST') {
                  SET code = :code,
                      name = :name,
                      category = :category,
+                     usage_type = :usage_type,
                      frame_size = :frame_size,
                      frame_number = :frame_number,
                      photo_stored_name = :photo_stored_name,
@@ -80,9 +84,9 @@ if ($method === 'POST') {
         } else {
             $stmt = db()->prepare(
                 'INSERT INTO bikes
-                 (code, name, category, frame_size, frame_number, photo_stored_name, photo_original_name, photo_mime_type, photo_size_bytes, daily_rate, status, notes)
+                 (code, name, category, usage_type, frame_size, frame_number, photo_stored_name, photo_original_name, photo_mime_type, photo_size_bytes, daily_rate, status, notes)
                  VALUES
-                 (:code, :name, :category, :frame_size, :frame_number, :photo_stored_name, :photo_original_name, :photo_mime_type, :photo_size_bytes, :daily_rate, :status, :notes)'
+                 (:code, :name, :category, :usage_type, :frame_size, :frame_number, :photo_stored_name, :photo_original_name, :photo_mime_type, :photo_size_bytes, :daily_rate, :status, :notes)'
             );
             $stmt->execute($data + [
                 ':photo_stored_name' => $photoStoredName,
@@ -97,6 +101,7 @@ if ($method === 'POST') {
         audit($auditAction, 'bike', $bikeId, [
             'code' => $data[':code'],
             'frame_number' => $data[':frame_number'],
+            'usage_type' => $data[':usage_type'],
             'has_photo' => $photoStoredName !== null,
         ]);
         db()->commit();
@@ -126,7 +131,13 @@ if ($method === 'POST') {
 
 $bikes = all_bikes(true);
 $editBike = $editId > 0 ? find_bike($editId) : null;
-$categories = ['E-bike', 'Stadsfiets', 'Kinderfiets', 'Tandem', 'Racefiets', 'Gravelfiets', 'Andere'];
+$categories = ['E-bike', 'Speedpedelec', 'Stadsfiets', 'Kinderfiets', 'Tandem', 'Racefiets', 'Gravelfiets', 'Andere'];
+$usageTypes = [
+    'rental' => 'Huurfiets',
+    'replacement' => 'Vervangfiets',
+    'test' => 'Testfiets',
+    'replacement_rental' => 'Vervang-/huurfiets',
+];
 
 render_header('Verhuurfietsen');
 ?>
@@ -135,13 +146,13 @@ render_header('Verhuurfietsen');
         <div class="actions actions-between">
             <div>
                 <h2>Fietsoverzicht</h2>
-                <p class="muted">Herken elke verhuurfiets aan foto, interne code en uniek framenummer.</p>
+                <p class="muted">Herken elke fiets aan foto, interne code, framenummer en inzettype.</p>
             </div>
             <a class="button button-secondary" href="bikes.php">+ Nieuwe fiets</a>
         </div>
 
         <?php if (!$bikes): ?>
-            <div class="alert alert-warning">Nog geen verhuurfietsen toegevoegd.</div>
+            <div class="alert alert-warning">Nog geen fietsen toegevoegd.</div>
         <?php else: ?>
             <div class="bike-card-grid">
                 <?php foreach ($bikes as $bike): ?>
@@ -162,6 +173,7 @@ render_header('Verhuurfietsen');
                             <dl class="bike-facts">
                                 <dt>Framenummer</dt><dd><?= e($bike['frame_number'] ?: 'Nog invullen') ?></dd>
                                 <dt>Categorie</dt><dd><?= e($bike['category']) ?></dd>
+                                <dt>Inzettype</dt><dd><?= e(bike_usage_type_label((string) ($bike['usage_type'] ?? 'rental'))) ?></dd>
                                 <dt>Framemaat</dt><dd><?= e($bike['frame_size'] ?: '—') ?></dd>
                                 <dt>Dagprijs</dt><dd>€ <?= number_format((float) $bike['daily_rate'], 2, ',', '.') ?></dd>
                             </dl>
@@ -219,6 +231,15 @@ render_header('Verhuurfietsen');
                         <option value="<?= e($category) ?>" <?= ($editBike['category'] ?? '') === $category ? 'selected' : '' ?>><?= e($category) ?></option>
                     <?php endforeach; ?>
                 </select>
+            </div>
+            <div class="field">
+                <label>Inzettype *</label>
+                <select name="usage_type" required>
+                    <?php foreach ($usageTypes as $value => $label): ?>
+                        <option value="<?= e($value) ?>" <?= ($editBike['usage_type'] ?? 'rental') === $value ? 'selected' : '' ?>><?= e($label) ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <span class="help">Huurfiets, vervangfiets, testfiets of gecombineerd inzetbaar.</span>
             </div>
             <div class="field">
                 <label>Framemaat</label>
