@@ -38,7 +38,7 @@ New-Item -ItemType Directory -Path $publishDir -Force | Out-Null
 New-Item -ItemType Directory -Path $installDir -Force | Out-Null
 
 Write-Host 'AAB eID Bridge bouwen…' -ForegroundColor Cyan
-dotnet publish $project -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o $publishDir
+dotnet publish $project -c Release -r win-x86 --self-contained true -p:PublishSingleFile=true -o $publishDir
 if ($LASTEXITCODE -ne 0) {
     throw 'Build van AAB eID Bridge is mislukt.'
 }

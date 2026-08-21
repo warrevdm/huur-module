@@ -28,13 +28,13 @@ jobs:
         run: >-
           dotnet publish tools/eid-bridge/AabEidBridge.csproj
           -c Release
-          -r win-x64
+          -r win-x86
           --self-contained true
           -p:PublishSingleFile=true
           -o tools/eid-bridge/dist
       - name: Upload bridge artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AAB-eID-Bridge-win-x64
+          name: AAB-eID-Bridge-win-x86
           path: tools/eid-bridge/dist/**
           if-no-files-found: error
