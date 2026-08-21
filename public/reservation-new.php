@@ -23,6 +23,7 @@ if ($method === 'POST') {
     $name = trim((string) ($_POST['customer_name'] ?? ''));
     $email = trim((string) ($_POST['customer_email'] ?? ''));
     $totalPrice = max(0, round((float) ($_POST['total_price'] ?? 0), 2));
+    $priceCalculationMode = (string) ($_POST['price_calculation_mode'] ?? 'manual') === 'auto' ? 'auto' : 'manual';
     $initialPaymentMethod = (string) ($_POST['initial_payment_method'] ?? '');
     $initialPaymentAmount = max(0, round((float) ($_POST['initial_payment_amount'] ?? 0), 2));
     $eidPhysicalChecked = isset($_POST['eid_physical_checked']);
@@ -54,6 +55,15 @@ if ($method === 'POST') {
             redirect('reservation-new.php');
         }
         $selectedBikes[] = $bike;
+    }
+
+    $priceQuote = rental_price_quote($selectedBikes, $startAt, $endAt);
+    if ($priceCalculationMode === 'auto') {
+        if (!$priceQuote['complete']) {
+            flash('error', 'De automatische prijs kon niet voor alle geselecteerde fietsen worden berekend. Vul de totaalprijs manueel in.');
+            redirect('reservation-new.php');
+        }
+        $totalPrice = (float) $priceQuote['total'];
     }
 
     if ($eidPhysicalChecked !== $eidPhotoMatch) {
@@ -120,10 +130,14 @@ if ($method === 'POST') {
              VALUES (:reservation_id, :bike_id, :daily_rate)'
         );
         foreach ($selectedBikes as $bike) {
+            $pricingRule = rental_pricing_rule($bike);
+            $reservedDailyRate = $pricingRule !== null
+                ? (float) $pricingRule['day_rate']
+                : (float) $bike['daily_rate'];
             $bikeStmt->execute([
                 ':reservation_id' => $reservationId,
                 ':bike_id' => (int) $bike['id'],
-                ':daily_rate' => (float) $bike['daily_rate'],
+                ':daily_rate' => $reservedDailyRate,
             ]);
         }
 
@@ -151,6 +165,10 @@ if ($method === 'POST') {
             'eid_checked_by' => $eidVerified ? (int) current_user()['id'] : null,
             'initial_payment_method' => $initialPaymentMethod ?: null,
             'initial_payment_amount' => $initialPaymentMethod !== '' ? $initialPaymentAmount : 0,
+            'price_calculation_mode' => $priceCalculationMode,
+            'billable_days' => (int) $priceQuote['days'],
+            'calculated_total' => $priceQuote['complete'] ? (float) $priceQuote['total'] : null,
+            'stored_total' => $totalPrice,
         ]);
         flash('success', count($selectedBikeIds) . ' fiets(en) ingepland. Controleer nu het gezamenlijke contract.');
         redirect('contract.php?reservation_id=' . $reservationId);
@@ -175,6 +193,7 @@ render_header('Nieuwe verhuur');
 <section class="card">
 <form method="post" enctype="multipart/form-data" class="stack" data-reservation-form data-availability-url="api-bike-availability.php">
     <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
+    <input type="hidden" name="price_calculation_mode" value="manual" data-price-calculation-mode>
 
     <div class="form-grid">
         <div class="field field-full">
@@ -189,9 +208,18 @@ render_header('Nieuwe verhuur');
                     $suffix = $state['available'] ? 'BESCHIKBAAR' : strtoupper((string) ($state['reason'] ?: 'NIET BESCHIKBAAR'));
                     $usageType = bike_usage_type_label((string) ($bike['usage_type'] ?? 'rental'));
                     $baseLabel = $bike['code'] . ' — ' . $bike['name'] . ' (' . $bike['category'] . ' · ' . $usageType . ')';
+                    $pricingRule = rental_pricing_rule($bike);
                 ?>
                     <option value="<?= (int) $bike['id'] ?>"
                             data-base-label="<?= e($baseLabel) ?>"
+                            data-bike-code="<?= e((string) $bike['code']) ?>"
+                            data-bike-name="<?= e((string) $bike['name']) ?>"
+                            data-bike-category="<?= e((string) $bike['category']) ?>"
+                            data-bike-usage-type="<?= e((string) ($bike['usage_type'] ?? 'rental')) ?>"
+                            data-price-supported="<?= $pricingRule !== null ? '1' : '0' ?>"
+                            data-price-day="<?= $pricingRule !== null ? e(number_format((float) $pricingRule['day_rate'], 2, '.', '')) : '' ?>"
+                            data-price-week="<?= $pricingRule !== null ? e(number_format((float) $pricingRule['week_rate'], 2, '.', '')) : '' ?>"
+                            data-price-label="<?= $pricingRule !== null ? e((string) $pricingRule['label']) : 'Geen automatisch tarief' ?>"
                             <?= $selected ? 'selected' : '' ?>
                             <?= !$state['available'] ? 'disabled' : '' ?>><?= e($baseLabel . ' · ' . $suffix) ?></option>
                 <?php endforeach; ?>
@@ -234,8 +262,16 @@ render_header('Nieuwe verhuur');
 
     <hr><h2>Prijs en betaling</h2>
     <div class="form-grid">
+        <div class="field field-full">
+            <label>Verhuurprijs berekenen</label>
+            <div class="actions">
+                <button class="button button-secondary" type="button" data-calculate-rental-price>Bereken verhuurprijs</button>
+            </div>
+            <span class="help">E-bike: €30/dag of €150/week · Stadsfiets: €15/dag of €75/week. De voordeligste combinatie van dag- en weektarief wordt gebruikt.</span>
+            <div class="availability-message" data-price-breakdown aria-live="polite">Selecteer fiets(en) en een geldige huurperiode.</div>
+        </div>
         <div class="field"><label>Status</label><select name="status"><option value="reserved">Gereserveerd</option><option value="confirmed">Bevestigd</option></select></div>
-        <div class="field"><label>Totaalprijs</label><input name="total_price" type="number" min="0" step="0.01" value="0"></div>
+        <div class="field"><label>Totaalprijs</label><input name="total_price" type="number" min="0" step="0.01" value="0" data-total-price><span class="help">Mag manueel worden aangepast bij uitzonderingen.</span></div>
         <div class="field"><label>Betaling bij reservatie</label><select name="initial_payment_method" data-payment-method><option value="">Nog niet betaald</option><option value="bancontact">Bancontact</option><option value="cash">Cash</option></select></div>
         <div class="field"><label>Betaald bedrag</label><input name="initial_payment_amount" type="number" min="0" step="0.01" value="0" data-payment-amount></div>
         <div class="field field-full"><label>Interne notities</label><textarea name="notes"></textarea></div>
