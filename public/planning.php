@@ -58,7 +58,7 @@ render_header('Verhuurplanning');
     </div>
 
     <?php if (!$bikes): ?>
-        <div class="alert alert-warning">Voeg eerst een verhuurfiets toe.</div>
+        <div class="alert alert-warning">Voeg eerst een fiets toe.</div>
         <a class="button" href="bikes.php">Fiets toevoegen</a>
     <?php else: ?>
         <div class="planning-wrap"><table class="planning">
@@ -79,7 +79,7 @@ render_header('Verhuurplanning');
                             <strong><?= e($bike['name']) ?></strong>
                             <span class="badge badge-<?= e($bikeStatus) ?>"><?= e(bike_status_label($bikeStatus)) ?></span>
                         </div>
-                        <span class="muted"><?= e($bike['code']) ?> · <?= e($bike['category']) ?></span>
+                        <span class="muted"><?= e($bike['code']) ?> · <?= e($bike['category']) ?> · <?= e(bike_usage_type_label((string) ($bike['usage_type'] ?? 'rental'))) ?></span>
                         <?php if (!$planable): ?><span class="bike-block-reason"><?= $bikeStatus === 'maintenance' ? 'Niet inplanbaar tijdens onderhoud' : 'Niet inplanbaar zolang inactief' ?></span><?php endif; ?>
                     </td>
                     <?php while ($cursor < $days):
