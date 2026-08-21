@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/graph_mailer.php';
+
 function send_signed_contract_email(array $contract, array $reservation): array
 {
     $to = trim((string) ($reservation['customer_email'] ?? ''));
@@ -34,6 +36,10 @@ function send_signed_contract_email(array $contract, array $reservation): array
         }
         @chmod($path, 0640);
         return ['status' => 'logged', 'error' => 'Testmodus: e-mail opgeslagen onder storage/private/mail.'];
+    }
+
+    if ($transport === 'graph') {
+        return send_signed_contract_graph($contract, $reservation, $subject);
     }
 
     if ($transport === 'mail') {

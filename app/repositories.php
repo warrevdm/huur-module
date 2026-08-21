@@ -90,11 +90,13 @@ function find_reservation(int $id): ?array
                 d.mime_type AS document_mime, d.size_bytes AS document_size, d.retention_until,
                 d.deleted_at AS document_deleted_at,
                 creator.name AS created_by_name, creator.email AS created_by_email,
+                eid_checker.name AS eid_checked_by_name, eid_checker.email AS eid_checked_by_email,
                 closer.name AS closed_by_name, closer.email AS closed_by_email
          FROM reservations r
          JOIN customers c ON c.id = r.customer_id
          LEFT JOIN identity_documents d ON d.id = r.identity_document_id
          LEFT JOIN users creator ON creator.id = r.created_by
+         LEFT JOIN users eid_checker ON eid_checker.id = r.eid_checked_by
          LEFT JOIN users closer ON closer.id = r.closed_by
          WHERE r.id = :id'
     );

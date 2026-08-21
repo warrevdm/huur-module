@@ -61,6 +61,10 @@ CREATE TABLE IF NOT EXISTS reservations (
     total_price REAL NOT NULL DEFAULT 0,
     notes TEXT,
     created_by INTEGER,
+    eid_physical_checked INTEGER NOT NULL DEFAULT 0 CHECK(eid_physical_checked IN (0,1)),
+    eid_photo_match INTEGER NOT NULL DEFAULT 0 CHECK(eid_photo_match IN (0,1)),
+    eid_checked_by INTEGER,
+    eid_checked_at TEXT,
     closed_by INTEGER,
     closed_at TEXT,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -69,6 +73,7 @@ CREATE TABLE IF NOT EXISTS reservations (
     FOREIGN KEY (customer_id) REFERENCES customers(id),
     FOREIGN KEY (identity_document_id) REFERENCES identity_documents(id) ON DELETE SET NULL,
     FOREIGN KEY (created_by) REFERENCES users(id),
+    FOREIGN KEY (eid_checked_by) REFERENCES users(id),
     FOREIGN KEY (closed_by) REFERENCES users(id)
 );
 

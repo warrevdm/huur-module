@@ -13,3 +13,5 @@
 !/storage/private/bikes/.gitkeep
 /storage/logs/*
 .DS_Store
+/storage/backups/
+/tools/eid-bridge/dist-x86/

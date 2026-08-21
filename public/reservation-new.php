@@ -25,6 +25,9 @@ if ($method === 'POST') {
     $totalPrice = max(0, round((float) ($_POST['total_price'] ?? 0), 2));
     $initialPaymentMethod = (string) ($_POST['initial_payment_method'] ?? '');
     $initialPaymentAmount = max(0, round((float) ($_POST['initial_payment_amount'] ?? 0), 2));
+    $eidPhysicalChecked = isset($_POST['eid_physical_checked']);
+    $eidPhotoMatch = isset($_POST['eid_photo_match']);
+    $eidVerified = $eidPhysicalChecked && $eidPhotoMatch;
 
     if (!$selectedBikeIds || count($selectedBikeIds) > 25) {
         flash('error', 'Selecteer minstens één en maximaal 25 fietsen.');
@@ -51,6 +54,11 @@ if ($method === 'POST') {
             redirect('reservation-new.php');
         }
         $selectedBikes[] = $bike;
+    }
+
+    if ($eidPhysicalChecked !== $eidPhotoMatch) {
+        flash('error', 'Identiteitscontrole onvolledig: bevestig zowel de fysieke eID als de visuele fotovergelijking, of laat beide uitgevinkt.');
+        redirect('reservation-new.php');
     }
 
     if ($initialPaymentMethod !== '' && !in_array($initialPaymentMethod, ['bancontact', 'cash'], true)) {
@@ -85,8 +93,10 @@ if ($method === 'POST') {
         $primaryBike = $selectedBikes[0];
         $stmt = db()->prepare(
             'INSERT INTO reservations
-             (bike_id,customer_id,identity_document_id,start_at,end_at,status,total_price,notes,created_by)
-             VALUES (:bike,:customer,:document,:start,:end,:status,:price,:notes,:user)'
+             (bike_id,customer_id,identity_document_id,start_at,end_at,status,total_price,notes,created_by,
+              eid_physical_checked,eid_photo_match,eid_checked_by,eid_checked_at)
+             VALUES (:bike,:customer,:document,:start,:end,:status,:price,:notes,:user,
+                     :eid_physical,:eid_photo,:eid_user,:eid_at)'
         );
         $stmt->execute([
             ':bike' => (int) $primaryBike['id'],
@@ -98,6 +108,10 @@ if ($method === 'POST') {
             ':price' => $totalPrice,
             ':notes' => trim((string) ($_POST['notes'] ?? '')) ?: null,
             ':user' => (int) current_user()['id'],
+            ':eid_physical' => $eidVerified ? 1 : 0,
+            ':eid_photo' => $eidVerified ? 1 : 0,
+            ':eid_user' => $eidVerified ? (int) current_user()['id'] : null,
+            ':eid_at' => $eidVerified ? (new DateTimeImmutable('now', new DateTimeZone('Europe/Brussels')))->format('Y-m-d H:i:s') : null,
         ]);
         $reservationId = (int) db()->lastInsertId();
 
@@ -132,6 +146,9 @@ if ($method === 'POST') {
             'bike_ids' => $selectedBikeIds,
             'bike_count' => count($selectedBikeIds),
             'has_identity_document' => $documentId !== null,
+            'eid_physical_checked' => $eidVerified,
+            'eid_photo_match' => $eidVerified,
+            'eid_checked_by' => $eidVerified ? (int) current_user()['id'] : null,
             'initial_payment_method' => $initialPaymentMethod ?: null,
             'initial_payment_amount' => $initialPaymentMethod !== '' ? $initialPaymentAmount : 0,
         ]);
@@ -192,6 +209,23 @@ render_header('Nieuwe verhuur');
         <div class="field"><label>Telefoon</label><input name="customer_phone" type="tel"></div>
         <div class="field"><label>E-mail voor contractkopie *</label><input name="customer_email" type="email" required></div>
         <div class="field"><label>Adres</label><input name="customer_address"></div>
+
+        <div class="field field-full">
+            <label>Identiteitscontrole bij afhaling</label>
+            <label class="checkbox-row">
+                <input type="checkbox" name="eid_physical_checked" value="1">
+                Fysieke Belgische eID gecontroleerd
+            </label>
+            <label class="checkbox-row">
+                <input type="checkbox" name="eid_photo_match" value="1">
+                Foto op de fysieke eID visueel overeenkomstig met de huurder
+            </label>
+            <span class="help">
+                Bij bevestiging registreert het systeem automatisch de ingelogde medewerker en het tijdstip.
+                Rijksregisternummer en eID-foto worden niet opgeslagen.
+            </span>
+        </div>
+
         <div class="field field-full"><label>Identiteitsdocument (optioneel)</label><input name="identity_document" type="file" accept="image/jpeg,image/png,application/pdf"><span class="help">Gebruik bij voorkeur visuele identificatie. Upload alleen met geldige wettelijke basis en bewaartermijn.</span></div>
         <div class="field"><label>Automatisch verwijderen na</label><input name="retention_until" type="date" value="<?= e((new DateTimeImmutable($endDate))->modify('+' . (int) env('ID_RETENTION_DAYS', '30') . ' days')->format('Y-m-d')) ?>"></div>
     </div>

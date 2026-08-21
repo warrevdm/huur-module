@@ -18,6 +18,54 @@ if ((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     verify_csrf();
     $action = (string) ($_POST['action'] ?? '');
 
+    if ($action === 'confirm-eid-check') {
+        if (!empty($reservation['eid_checked_at'])) {
+            flash('error', 'De eID-identiteitscontrole is voor dit dossier al bevestigd.');
+            redirect('reservation.php?id=' . $id . '#identiteitscontrole');
+        }
+
+        $physicalChecked = isset($_POST['eid_physical_checked']);
+        $photoMatch = isset($_POST['eid_photo_match']);
+
+        if (!$physicalChecked || !$photoMatch) {
+            flash('error', 'Bevestig zowel de fysieke eID-controle als de visuele fotovergelijking.');
+            redirect('reservation.php?id=' . $id . '#identiteitscontrole');
+        }
+
+        $checkedAt = (new DateTimeImmutable('now', new DateTimeZone('Europe/Brussels')))->format('Y-m-d H:i:s');
+        $checkedBy = (int) current_user()['id'];
+
+        $stmt = db()->prepare(
+            'UPDATE reservations
+             SET eid_physical_checked = 1,
+                 eid_photo_match = 1,
+                 eid_checked_by = :checked_by,
+                 eid_checked_at = :checked_at,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE id = :id AND eid_checked_at IS NULL'
+        );
+        $stmt->execute([
+            ':checked_by' => $checkedBy,
+            ':checked_at' => $checkedAt,
+            ':id' => $id,
+        ]);
+
+        if ($stmt->rowCount() !== 1) {
+            flash('error', 'De identiteitscontrole kon niet worden vastgelegd of was al geregistreerd.');
+            redirect('reservation.php?id=' . $id . '#identiteitscontrole');
+        }
+
+        audit('confirm_eid_identity_check', 'reservation', $id, [
+            'eid_physical_checked' => true,
+            'eid_photo_match' => true,
+            'eid_checked_by' => $checkedBy,
+            'eid_checked_at' => $checkedAt,
+        ]);
+
+        flash('success', 'eID-identiteitscontrole geregistreerd.');
+        redirect('reservation.php?id=' . $id . '#identiteitscontrole');
+    }
+
     if ($action === 'update-total-price') {
         $newTotalPrice = round((float) ($_POST['total_price'] ?? 0), 2);
         $summary = reservation_payment_summary($id, (float) $reservation['total_price']);
@@ -169,6 +217,41 @@ render_header('Verhuur #' . $id);
         <?php else: ?>
             <p><span class="badge status-reserved">Wacht op handtekening</span></p>
             <a class="button" href="contract.php?reservation_id=<?= $id ?>">Naar ondertekening</a>
+        <?php endif; ?>
+
+        <hr><h2 id="identiteitscontrole">eID-identiteitscontrole</h2>
+        <?php if (!empty($reservation['eid_checked_at'])): ?>
+            <div class="alert alert-success">
+                <strong>Identiteit gecontroleerd</strong><br>
+                Fysieke eID gecontroleerd: âœ“<br>
+                Foto visueel overeenkomstig: âœ“<br>
+                Medewerker: <?= e((string) ($reservation['eid_checked_by_name'] ?: 'Onbekend')) ?><br>
+                Tijdstip: <?= e((new DateTimeImmutable((string) $reservation['eid_checked_at']))->format('d/m/Y H:i')) ?>
+            </div>
+        <?php else: ?>
+            <p class="muted">Nog niet bevestigd. Voer deze controle uit wanneer de huurder fysiek aanwezig is.</p>
+            <form method="post" class="stack">
+                <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
+                <input type="hidden" name="id" value="<?= $id ?>">
+                <input type="hidden" name="action" value="confirm-eid-check">
+
+                <label class="checkbox-row">
+                    <input type="checkbox" name="eid_physical_checked" value="1" required>
+                    Fysieke Belgische eID gecontroleerd
+                </label>
+
+                <label class="checkbox-row">
+                    <input type="checkbox" name="eid_photo_match" value="1" required>
+                    Foto op de fysieke eID visueel overeenkomstig met de huurder
+                </label>
+
+                <span class="help">
+                    Bij bevestiging worden medewerker en tijdstip automatisch geregistreerd.
+                    Er wordt geen rijksregisternummer of eID-foto opgeslagen.
+                </span>
+
+                <button class="button button-secondary" type="submit">Identiteitscontrole bevestigen</button>
+            </form>
         <?php endif; ?>
 
         <hr><h2>Identiteitsdocument</h2>
