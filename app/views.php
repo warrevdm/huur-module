@@ -91,6 +91,17 @@ function bike_status_label(string $status): string
     };
 }
 
+function bike_usage_type_label(string $usageType): string
+{
+    return match ($usageType) {
+        'rental' => 'Huurfiets',
+        'replacement' => 'Vervangfiets',
+        'test' => 'Testfiets',
+        'replacement_rental' => 'Vervang-/huurfiets',
+        default => 'Huurfiets',
+    };
+}
+
 function payment_method_label(string $method): string
 {
     return match ($method) {
