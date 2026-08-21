@@ -4,16 +4,6 @@ declare(strict_types=1);
 
 function rental_pricing_rule(array $bike): ?array
 {
-    $usageType = (string) ($bike['usage_type'] ?? 'rental');
-
-    if (in_array($usageType, ['replacement', 'test'], true)) {
-        return [
-            'day_rate' => 0.0,
-            'week_rate' => 0.0,
-            'label' => bike_usage_type_label($usageType) . ' · gratis inzet',
-        ];
-    }
-
     return match ((string) ($bike['category'] ?? '')) {
         'E-bike' => [
             'day_rate' => 30.0,
