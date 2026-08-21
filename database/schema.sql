@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS bikes (
     code TEXT NOT NULL UNIQUE,
     name TEXT NOT NULL,
     category TEXT NOT NULL,
+    usage_type TEXT NOT NULL DEFAULT 'rental' CHECK(usage_type IN ('rental', 'replacement', 'test', 'replacement_rental')),
     frame_size TEXT,
     frame_number TEXT,
     photo_stored_name TEXT,
