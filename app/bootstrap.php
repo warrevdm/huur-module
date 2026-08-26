@@ -12,6 +12,7 @@ if (is_file($autoload)) {
 require_once __DIR__ . '/env.php';
 require_once __DIR__ . '/database.php';
 require_once __DIR__ . '/security.php';
+require_once __DIR__ . '/bike_images.php';
 require_once __DIR__ . '/repositories.php';
 require_once __DIR__ . '/views.php';
 require_once __DIR__ . '/pricing.php';
