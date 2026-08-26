@@ -155,11 +155,11 @@ render_header('Verhuurfietsen');
             <div class="alert alert-warning">Nog geen fietsen toegevoegd.</div>
         <?php else: ?>
             <div class="bike-card-grid">
-                <?php foreach ($bikes as $bike): ?>
+                <?php foreach ($bikes as $index => $bike): ?>
                     <article class="bike-card <?= $editId === (int) $bike['id'] ? 'bike-card-selected' : '' ?>">
                         <div class="bike-photo-frame">
                             <?php if (!empty($bike['photo_stored_name'])): ?>
-                                <img src="bike-photo.php?id=<?= (int) $bike['id'] ?>&amp;size=480&amp;v=<?= e((string) $bike['updated_at']) ?>" alt="<?= e($bike['name']) ?>" loading="lazy" decoding="async" fetchpriority="low">
+                                <img src="<?= e(bike_photo_src($bike, 320)) ?>" alt="<?= e($bike['name']) ?>" loading="<?= $index < 4 ? 'eager' : 'lazy' ?>" decoding="async"<?= $index < 2 ? ' fetchpriority="high"' : '' ?>>
                             <?php else: ?>
                                 <div class="bike-photo-placeholder">Nog geen foto</div>
                             <?php endif; ?>
@@ -193,7 +193,7 @@ render_header('Verhuurfietsen');
 
             <?php if ($editBike && !empty($editBike['photo_stored_name'])): ?>
                 <div class="bike-current-photo">
-                    <img src="bike-photo.php?id=<?= (int) $editBike['id'] ?>&amp;size=800&amp;v=<?= e((string) $editBike['updated_at']) ?>" alt="<?= e($editBike['name']) ?>" loading="lazy" decoding="async">
+                    <img src="<?= e(bike_photo_src($editBike, 800)) ?>" alt="<?= e($editBike['name']) ?>" loading="eager" decoding="async" fetchpriority="high">
                 </div>
             <?php endif; ?>
 
