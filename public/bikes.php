@@ -9,6 +9,32 @@ $method = (string) ($_SERVER['REQUEST_METHOD'] ?? 'GET');
 $editId = (int) ($_GET['edit'] ?? $_POST['id'] ?? 0);
 $editBike = $editId > 0 ? find_bike($editId) : null;
 
+if ($method === 'POST' && (string) ($_POST['action'] ?? '') === 'optimize_images') {
+    verify_csrf();
+
+    $optimized = 0;
+    $failed = 0;
+    foreach (all_bikes(true) as $bike) {
+        if (empty($bike['photo_stored_name'])) {
+            continue;
+        }
+        $variant = bike_ensure_web_variant($bike, 240);
+        if ($variant !== null) {
+            $optimized++;
+        } else {
+            $failed++;
+        }
+    }
+
+    flash(
+        $failed === 0 ? 'success' : 'warning',
+        $failed === 0
+            ? "{$optimized} fietsafbeeldingen geoptimaliseerd."
+            : "{$optimized} afbeeldingen geoptimaliseerd; {$failed} konden niet worden verwerkt."
+    );
+    redirect('bikes.php');
+}
+
 if ($method === 'POST') {
     verify_csrf();
 
@@ -110,6 +136,13 @@ if ($method === 'POST') {
             delete_bike_photo((string) $oldStoredName);
         }
 
+        if ($newPhoto !== null) {
+            $savedBike = find_bike($bikeId);
+            if ($savedBike) {
+                bike_pregenerate_web_variants($savedBike, [240, 800]);
+            }
+        }
+
         flash('success', $editBike ? 'Fiets bijgewerkt.' : 'Fiets toegevoegd.');
         redirect('bikes.php?edit=' . $bikeId);
     } catch (Throwable $e) {
@@ -148,7 +181,14 @@ render_header('Verhuurfietsen');
                 <h2>Fietsoverzicht</h2>
                 <p class="muted">Herken elke fiets aan foto, interne code, framenummer en inzettype.</p>
             </div>
-            <a class="button button-secondary" href="bikes.php">+ Nieuwe fiets</a>
+            <div class="actions">
+                <form method="post">
+                    <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
+                    <input type="hidden" name="action" value="optimize_images">
+                    <button class="button button-secondary" type="submit">Foto's optimaliseren</button>
+                </form>
+                <a class="button button-secondary" href="bikes.php">+ Nieuwe fiets</a>
+            </div>
         </div>
 
         <?php if (!$bikes): ?>
@@ -159,7 +199,7 @@ render_header('Verhuurfietsen');
                     <article class="bike-card <?= $editId === (int) $bike['id'] ? 'bike-card-selected' : '' ?>">
                         <div class="bike-photo-frame">
                             <?php if (!empty($bike['photo_stored_name'])): ?>
-                                <img src="<?= e(bike_photo_src($bike, 320)) ?>" alt="<?= e($bike['name']) ?>" loading="<?= $index < 4 ? 'eager' : 'lazy' ?>" decoding="async"<?= $index < 2 ? ' fetchpriority="high"' : '' ?>>
+                                <img src="<?= e(bike_photo_src($bike, 240)) ?>" alt="<?= e($bike['name']) ?>" loading="<?= $index < 4 ? 'eager' : 'lazy' ?>" decoding="async"<?= $index < 2 ? ' fetchpriority="high"' : '' ?>>
                             <?php else: ?>
                                 <div class="bike-photo-placeholder">Nog geen foto</div>
                             <?php endif; ?>
@@ -200,7 +240,7 @@ render_header('Verhuurfietsen');
             <div class="field">
                 <label>Fietsafbeelding</label>
                 <input name="photo" type="file" accept="image/jpeg,image/png,image/webp">
-                <span class="help">JPG, PNG of WebP · maximum <?= (int) env('BIKE_IMAGE_MAX_MB', '8') ?> MB. De app maakt automatisch een snelle WebP-weergave voor het overzicht.</span>
+                <span class="help">JPG, PNG of WebP · maximum <?= (int) env('BIKE_IMAGE_MAX_MB', '8') ?> MB. Nieuwe foto's worden meteen geoptimaliseerd voor snelle weergave.</span>
             </div>
 
             <?php if ($editBike && !empty($editBike['photo_stored_name'])): ?>
@@ -220,7 +260,7 @@ render_header('Verhuurfietsen');
             </div>
             <div class="field">
                 <label>Framenummer *</label>
-                <input name="frame_number" required autocomplete="off" value="<?= e((string) ($editBike['frame_number'] ?? '')) ?>">
+                <input name="frame_number" required autocomplete="off" value="<?= e($editBike['frame_number'] ?: '') ?>">
                 <span class="help">Wordt in hoofdletters opgeslagen en moet uniek zijn.</span>
             </div>
             <div class="field">
