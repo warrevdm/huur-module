@@ -15,13 +15,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const bikeCards = () => Array.from(document.querySelectorAll('.bike-card')).map((card) => {
     const editLink = card.querySelector('a[href*="bikes.php?edit="]');
-    if (!editLink) return null;
+    const image = card.querySelector('img');
+    if (!editLink || !image) return null;
 
     try {
       const url = new URL(editLink.href, window.location.href);
       const id = Number.parseInt(url.searchParams.get('edit') || '0', 10);
       if (!Number.isInteger(id) || id < 1) return null;
-      return { id, card };
+      return { id, card, image };
     } catch {
       return null;
     }
@@ -31,19 +32,20 @@ document.addEventListener('DOMContentLoaded', () => {
     event.preventDefault();
     if (button.disabled) return;
 
-    const items = bikeCards().filter(({ card }) => card.querySelector('img'));
+    // Bestaande statische WebP-thumbnails hoeven niet opnieuw verwerkt te worden.
+    const items = bikeCards().filter(({ image }) => image.src.includes('bike-photo.php'));
     if (items.length === 0) {
-      status.textContent = 'Geen fietsafbeeldingen om te optimaliseren.';
+      status.textContent = 'Alle fietsafbeeldingen zijn al geoptimaliseerd.';
       return;
     }
 
     button.disabled = true;
     const originalLabel = button.textContent;
     let success = 0;
-    let failed = 0;
+    const failures = [];
 
     for (let index = 0; index < items.length; index += 1) {
-      const { id, card } = items[index];
+      const { id, image } = items[index];
       button.textContent = `Optimaliseren ${index + 1}/${items.length}`;
       status.textContent = `Foto ${index + 1} van ${items.length} verwerken…`;
 
@@ -61,26 +63,34 @@ document.addEventListener('DOMContentLoaded', () => {
           }),
         });
 
-        const data = await response.json();
-        if (!response.ok || !data.ok || !data.url) {
-          throw new Error(data.error || 'Optimalisatie mislukt.');
+        let data = null;
+        try {
+          data = await response.json();
+        } catch {
+          throw new Error('Server gaf geen geldige JSON-respons.');
         }
 
-        const image = card.querySelector('img');
-        if (image) {
-          image.src = data.url;
-          image.removeAttribute('srcset');
+        if (!response.ok || !data.ok || !data.url) {
+          const code = data?.code || `ID ${id}`;
+          throw new Error(`${code}: ${data?.error || 'Optimalisatie mislukt.'}`);
         }
+
+        image.src = data.url;
+        image.removeAttribute('srcset');
         success += 1;
-      } catch {
-        failed += 1;
+      } catch (error) {
+        failures.push(error instanceof Error ? error.message : `ID ${id}: optimalisatie mislukt.`);
       }
     }
 
     button.disabled = false;
     button.textContent = originalLabel;
-    status.textContent = failed === 0
-      ? `${success} foto’s geoptimaliseerd. Volgende paginalading gebruikt de snelle thumbnails.`
-      : `${success} foto’s geoptimaliseerd · ${failed} niet verwerkt.`;
+
+    if (failures.length === 0) {
+      status.textContent = `${success} resterende foto’s geoptimaliseerd. Alle thumbnails zijn klaar.`;
+      return;
+    }
+
+    status.textContent = `${success} geoptimaliseerd · ${failures.length} niet verwerkt: ${failures.join(' | ')}`;
   });
 });
