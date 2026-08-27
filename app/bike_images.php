@@ -225,6 +225,12 @@ function bike_photo_src(array $bike, int $size = 240): string
     $size = bike_image_normalize_size($size);
     $id = (int) ($bike['id'] ?? 0);
     $version = rawurlencode((string) ($bike['updated_at'] ?? ''));
+    $query = 'bike-photo.php?id=' . $id . '&size=' . $size . '&v=' . $version;
 
-    return 'bike-photo.php?id=' . $id . '&size=' . $size . '&v=' . $version;
+    $appUrl = rtrim(trim((string) env('APP_URL', '')), '/');
+    if ($appUrl !== '') {
+        return $appUrl . '/' . $query;
+    }
+
+    return $query;
 }
