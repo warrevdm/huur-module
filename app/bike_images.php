@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 function bike_image_allowed_sizes(): array
 {
-    return [320, 480, 800, 1200, 1600];
+    return [240, 320, 480, 800, 1200, 1600];
 }
 
 function bike_image_normalize_size(int $size): int
@@ -195,7 +195,7 @@ function bike_ensure_web_variant(array $bike, int $size): ?array
         return null;
     }
 
-    $quality = $variant['size'] <= 480 ? 72 : ($variant['size'] <= 800 ? 78 : 82);
+    $quality = $variant['size'] <= 240 ? 62 : ($variant['size'] <= 480 ? 68 : ($variant['size'] <= 800 ? 76 : 82));
     $tmpPath = $variant['cache_path'] . '.tmp-' . bin2hex(random_bytes(4));
 
     $written = false;
@@ -237,7 +237,14 @@ function bike_ensure_web_variant(array $bike, int $size): ?array
     return is_file($variant['cache_path']) ? $variant : null;
 }
 
-function bike_photo_src(array $bike, int $size = 320): string
+function bike_pregenerate_web_variants(array $bike, array $sizes = [240, 800]): void
+{
+    foreach ($sizes as $size) {
+        bike_ensure_web_variant($bike, (int) $size);
+    }
+}
+
+function bike_photo_src(array $bike, int $size = 240): string
 {
     $size = bike_image_normalize_size($size);
     $variant = bike_image_variant_info($bike, $size);
