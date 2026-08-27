@@ -15,6 +15,8 @@ if ((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     exit;
 }
 
+$bike = null;
+
 try {
     verify_csrf();
 
@@ -30,12 +32,13 @@ try {
 
     $variant = bike_generate_web_variant($bike, 240);
     if ($variant === null || !is_file($variant['cache_path'])) {
-        throw new RuntimeException('Thumbnail kon niet worden gemaakt. Controleer GD, geheugen en schrijfrechten.');
+        throw new RuntimeException(bike_image_failure_reason($bike, 240));
     }
 
     echo json_encode([
         'ok' => true,
         'id' => $id,
+        'code' => (string) ($bike['code'] ?? ''),
         'url' => $variant['url'],
         'bytes' => (int) (@filesize($variant['cache_path']) ?: 0),
     ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
@@ -43,6 +46,8 @@ try {
     http_response_code(422);
     echo json_encode([
         'ok' => false,
+        'id' => (int) ($_POST['id'] ?? 0),
+        'code' => (string) ($bike['code'] ?? ''),
         'error' => $e instanceof RuntimeException ? $e->getMessage() : 'Thumbnail kon niet worden gemaakt.',
     ], JSON_UNESCAPED_UNICODE);
 }
