@@ -14,9 +14,30 @@ if (!$bike) {
 
 $size = bike_image_normalize_size((int) ($_GET['size'] ?? 800));
 $variant = bike_ensure_web_variant($bike, $size);
+
 if ($variant !== null && is_file($variant['cache_path'])) {
-    header('Location: ' . $variant['url'], true, 302);
-    header('Cache-Control: private, max-age=300');
+    $path = (string) $variant['cache_path'];
+    $bytes = (int) (@filesize($path) ?: 0);
+    $mtime = (int) (@filemtime($path) ?: 0);
+    $etag = '"' . hash('sha256', basename($path) . '|' . $mtime . '|' . $bytes) . '"';
+
+    if (trim((string) ($_SERVER['HTTP_IF_NONE_MATCH'] ?? '')) === $etag) {
+        http_response_code(304);
+        header('Cache-Control: public, max-age=31536000, immutable');
+        header('ETag: ' . $etag);
+        exit;
+    }
+
+    header('Content-Type: image/webp');
+    if ($bytes > 0) {
+        header('Content-Length: ' . $bytes);
+    }
+    header('Content-Disposition: inline');
+    header('Cache-Control: public, max-age=31536000, immutable');
+    header('ETag: ' . $etag);
+    header('X-Content-Type-Options: nosniff');
+    header('X-Bike-Image-Mode: webp-cache');
+    readfile($path);
     exit;
 }
 
@@ -38,6 +59,8 @@ $bytes = (int) (@filesize($path) ?: 0);
 $etag = '"' . hash('sha256', $storedName . '|' . $mtime . '|' . $bytes) . '"';
 if (trim((string) ($_SERVER['HTTP_IF_NONE_MATCH'] ?? '')) === $etag) {
     http_response_code(304);
+    header('Cache-Control: private, max-age=86400');
+    header('ETag: ' . $etag);
     exit;
 }
 
