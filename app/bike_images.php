@@ -12,29 +12,6 @@ function bike_image_normalize_size(int $size): int
     return in_array($size, bike_image_allowed_sizes(), true) ? $size : 800;
 }
 
-function bike_image_public_web_path(string $filename): string
-{
-    $documentRoot = realpath((string) ($_SERVER['DOCUMENT_ROOT'] ?? ''));
-    $publicRoot = realpath(ROOT_PATH . '/public');
-
-    if ($documentRoot !== false && $publicRoot !== false) {
-        $normalize = static fn (string $path): string => rtrim(str_replace('\\', '/', $path), '/');
-        if ($normalize($documentRoot) === $normalize($publicRoot)) {
-            return 'assets/bike-cache/' . rawurlencode($filename);
-        }
-    }
-
-    return 'public/assets/bike-cache/' . rawurlencode($filename);
-}
-
-function bike_image_public_url(string $filename): string
-{
-    $path = bike_image_public_web_path($filename);
-    $appUrl = rtrim((string) env('APP_URL', ''), '/');
-
-    return $appUrl !== '' ? $appUrl . '/' . $path : $path;
-}
-
 function bike_image_variant_info(array $bike, int $size): ?array
 {
     $storedName = basename((string) ($bike['photo_stored_name'] ?? ''));
@@ -62,7 +39,6 @@ function bike_image_variant_info(array $bike, int $size): ?array
         'cache_dir' => ROOT_PATH . '/public/assets/bike-cache',
         'cache_path' => ROOT_PATH . '/public/assets/bike-cache/' . $filename,
         'filename' => $filename,
-        'url' => bike_image_public_url($filename),
     ];
 }
 
@@ -247,12 +223,8 @@ function bike_pregenerate_web_variants(array $bike, array $sizes = [240, 800]): 
 function bike_photo_src(array $bike, int $size = 240): string
 {
     $size = bike_image_normalize_size($size);
-    $variant = bike_image_variant_info($bike, $size);
-    if ($variant !== null && is_file($variant['cache_path'])) {
-        return $variant['url'];
-    }
-
     $id = (int) ($bike['id'] ?? 0);
     $version = rawurlencode((string) ($bike['updated_at'] ?? ''));
+
     return 'bike-photo.php?id=' . $id . '&size=' . $size . '&v=' . $version;
 }
