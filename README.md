@@ -29,7 +29,40 @@ PHP 8.2-module voor interne fietsverhuur, planning, betalingen, contractopmaak e
 - Composer
 - Schrijfrechten op `storage/`
 - HTTPS in productie
-- De document root moet naar `public/` wijzen
+
+Lokaal gebruikt `composer serve` de map `public/` als document root. Voor Combell kan de volledige projectmap onder `/www/huur-module/` staan: de root-entrypoints laden de echte bestanden uit `public/` en de root-`.htaccess` routeert `/assets/...` naar `public/assets/...` en blokkeert private projectmappen.
+
+## Combell File Manager deployment
+
+Doelmap:
+
+```text
+/www/huur-module/
+```
+
+De repository bevat root-entrypoints voor `index.php`, `planning.php`, `bikes.php`, `reservation-new.php`, `reservation.php`, `contract.php`, `sign.php`, `users.php`, `bike-photo.php`, `api-bike-availability.php` en `reservation-stamp.php`.
+
+Hierdoor zijn de normale productie-URL's:
+
+```text
+https://www.aertsactionbike.cc/huur-module/
+https://www.aertsactionbike.cc/huur-module/planning.php
+https://www.aertsactionbike.cc/huur-module/bikes.php
+```
+
+Directe links onder `/public/*.php` worden door `.htaccess` terug naar de root-route gestuurd. `public/assets/` blijft de fysieke assetmap; `/assets/...` wordt intern daarheen gerouteerd.
+
+Bij een File Manager-update mag je de code uit de lokale projectmap overschrijven, maar **niet blind de volledige lokale map over productie zetten**. Behoud altijd de serverversies van:
+
+```text
+.env
+storage/database.sqlite
+storage/private/
+storage/logs/
+storage/backups/
+```
+
+De lokale `.env` kan localhost-instellingen bevatten en de lokale database kan testdata bevatten. Upload `.git/` en lokale backups niet naar productie.
 
 ## Bestaande installatie bijwerken
 
