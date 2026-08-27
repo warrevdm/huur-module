@@ -12,6 +12,20 @@ function bike_image_normalize_size(int $size): int
     return in_array($size, bike_image_allowed_sizes(), true) ? $size : 800;
 }
 
+function bike_image_detect_mime(string $path): string
+{
+    if (!is_file($path)) {
+        return '';
+    }
+
+    try {
+        $finfo = new finfo(FILEINFO_MIME_TYPE);
+        return (string) $finfo->file($path);
+    } catch (Throwable) {
+        return '';
+    }
+}
+
 function bike_image_variant_info(array $bike, int $size): ?array
 {
     $storedName = basename((string) ($bike['photo_stored_name'] ?? ''));
@@ -24,8 +38,7 @@ function bike_image_variant_info(array $bike, int $size): ?array
         return null;
     }
 
-    $finfo = new finfo(FILEINFO_MIME_TYPE);
-    $mimeType = (string) $finfo->file($sourcePath);
+    $mimeType = bike_image_detect_mime($sourcePath);
     if (!in_array($mimeType, ['image/jpeg', 'image/png', 'image/webp'], true)) {
         return null;
     }
@@ -69,55 +82,83 @@ function bike_image_memory_limit_bytes(): int
     };
 }
 
-function bike_generate_web_variant(array $bike, int $size): ?array
+function bike_image_quality(int $size): int
 {
-    $variant = bike_image_variant_info($bike, $size);
-    if ($variant === null) {
-        return null;
+    return $size <= 240 ? 64 : ($size <= 800 ? 76 : 82);
+}
+
+function bike_generate_web_variant_with_imagick(array $variant, string $tmpPath): bool
+{
+    if (!class_exists('Imagick')) {
+        return false;
     }
 
-    if (is_file($variant['cache_path']) && (int) @filesize($variant['cache_path']) > 0) {
-        return $variant;
-    }
+    try {
+        $image = new Imagick($variant['source_path']);
+        if (method_exists($image, 'autoOrientImage')) {
+            $image->autoOrientImage();
+        }
 
-    if (!is_dir($variant['cache_dir'])
-        && !@mkdir($variant['cache_dir'], 0775, true)
-        && !is_dir($variant['cache_dir'])) {
-        return null;
-    }
+        $width = (int) $image->getImageWidth();
+        $height = (int) $image->getImageHeight();
+        if ($width < 1 || $height < 1) {
+            $image->clear();
+            $image->destroy();
+            return false;
+        }
 
+        if (max($width, $height) > $variant['size']) {
+            $image->thumbnailImage($variant['size'], $variant['size'], true, true);
+        }
+
+        $image->setImageFormat('webp');
+        $image->setImageCompressionQuality(bike_image_quality((int) $variant['size']));
+        $image->stripImage();
+        $written = (bool) $image->writeImage($tmpPath);
+        $image->clear();
+        $image->destroy();
+
+        return $written && is_file($tmpPath) && (int) @filesize($tmpPath) > 0;
+    } catch (Throwable) {
+        @unlink($tmpPath);
+        return false;
+    }
+}
+
+function bike_generate_web_variant_with_gd(array $variant, string $tmpPath): bool
+{
     if (!extension_loaded('gd')
         || !function_exists('imagecreatefromstring')
         || !function_exists('imagecreatetruecolor')
         || !function_exists('imagecopyresampled')
         || !function_exists('imagewebp')) {
-        return null;
+        return false;
     }
 
     $imageInfo = @getimagesize($variant['source_path']);
     $sourceWidth = (int) ($imageInfo[0] ?? 0);
     $sourceHeight = (int) ($imageInfo[1] ?? 0);
     if ($sourceWidth < 1 || $sourceHeight < 1) {
-        return null;
+        return false;
     }
 
-    // Vermijd een fatale memory-limit op shared hosting bij uitzonderlijk grote originelen.
+    // GD decodeert de volledige bron in geheugen. Sla extreem grote originelen veilig over.
     $estimatedBytes = ($sourceWidth * $sourceHeight * 5) + (16 * 1024 * 1024);
     $memoryLimit = bike_image_memory_limit_bytes();
     $memoryUsed = (int) memory_get_usage(true);
     if ($memoryLimit !== PHP_INT_MAX && ($memoryUsed + $estimatedBytes) > ($memoryLimit * 0.85)) {
-        return null;
+        return false;
     }
 
     $contents = @file_get_contents($variant['source_path']);
     if ($contents === false) {
-        return null;
+        return false;
     }
 
     $source = @imagecreatefromstring($contents);
     unset($contents);
     if ($source === false) {
-        return null;
+        return false;
     }
 
     if ($variant['mime_type'] === 'image/jpeg' && function_exists('exif_read_data') && function_exists('imagerotate')) {
@@ -146,7 +187,7 @@ function bike_generate_web_variant(array $bike, int $size): ?array
     $target = imagecreatetruecolor($targetWidth, $targetHeight);
     if ($target === false) {
         imagedestroy($source);
-        return null;
+        return false;
     }
 
     imagealphablending($target, false);
@@ -168,12 +209,38 @@ function bike_generate_web_variant(array $bike, int $size): ?array
         $sourceHeight
     );
 
-    $quality = $variant['size'] <= 240 ? 64 : ($variant['size'] <= 800 ? 76 : 82);
-    $tmpPath = $variant['cache_path'] . '.tmp-' . bin2hex(random_bytes(4));
-    $written = $resampled && @imagewebp($target, $tmpPath, $quality);
-
+    $written = $resampled && @imagewebp($target, $tmpPath, bike_image_quality((int) $variant['size']));
     imagedestroy($target);
     imagedestroy($source);
+
+    return $written && is_file($tmpPath) && (int) @filesize($tmpPath) > 0;
+}
+
+function bike_generate_web_variant(array $bike, int $size): ?array
+{
+    $variant = bike_image_variant_info($bike, $size);
+    if ($variant === null) {
+        return null;
+    }
+
+    if (is_file($variant['cache_path']) && (int) @filesize($variant['cache_path']) > 0) {
+        return $variant;
+    }
+
+    if (!is_dir($variant['cache_dir'])
+        && !@mkdir($variant['cache_dir'], 0775, true)
+        && !is_dir($variant['cache_dir'])) {
+        return null;
+    }
+
+    $tmpPath = $variant['cache_path'] . '.tmp-' . bin2hex(random_bytes(4));
+
+    // Imagick is op shared hosting doorgaans zuiniger voor zeer grote originelen.
+    $written = bike_generate_web_variant_with_imagick($variant, $tmpPath);
+    if (!$written) {
+        @unlink($tmpPath);
+        $written = bike_generate_web_variant_with_gd($variant, $tmpPath);
+    }
 
     if (!$written || !is_file($tmpPath) || (int) @filesize($tmpPath) < 1) {
         @unlink($tmpPath);
@@ -188,6 +255,50 @@ function bike_generate_web_variant(array $bike, int $size): ?array
     @chmod($variant['cache_path'], 0644);
 
     return $variant;
+}
+
+function bike_image_failure_reason(array $bike, int $size = 240): string
+{
+    $storedName = basename((string) ($bike['photo_stored_name'] ?? ''));
+    if ($storedName === '') {
+        return 'geen fotobestand gekoppeld';
+    }
+
+    $sourcePath = ROOT_PATH . '/storage/private/bikes/' . $storedName;
+    if (!is_file($sourcePath)) {
+        return 'fotobestand ontbreekt in storage/private/bikes';
+    }
+
+    $mimeType = bike_image_detect_mime($sourcePath);
+    if (!in_array($mimeType, ['image/jpeg', 'image/png', 'image/webp'], true)) {
+        return 'niet-ondersteund bestandstype (' . ($mimeType !== '' ? $mimeType : 'onbekend') . ')';
+    }
+
+    if (!is_writable(ROOT_PATH . '/public/assets') && !is_writable(ROOT_PATH . '/public/assets/bike-cache')) {
+        return 'geen schrijfrechten op public/assets/bike-cache';
+    }
+
+    if (!class_exists('Imagick') && !extension_loaded('gd')) {
+        return 'Imagick en GD ontbreken op de server';
+    }
+
+    $imageInfo = @getimagesize($sourcePath);
+    $width = (int) ($imageInfo[0] ?? 0);
+    $height = (int) ($imageInfo[1] ?? 0);
+    if ($width < 1 || $height < 1) {
+        return 'afbeelding kan niet worden gelezen';
+    }
+
+    if (!class_exists('Imagick')) {
+        $estimatedBytes = ($width * $height * 5) + (16 * 1024 * 1024);
+        $memoryLimit = bike_image_memory_limit_bytes();
+        $memoryUsed = (int) memory_get_usage(true);
+        if ($memoryLimit !== PHP_INT_MAX && ($memoryUsed + $estimatedBytes) > ($memoryLimit * 0.85)) {
+            return 'resolutie ' . $width . '×' . $height . ' is te groot voor het beschikbare PHP-geheugen';
+        }
+    }
+
+    return 'conversie naar WebP mislukt';
 }
 
 function bike_ensure_web_variant(array $bike, int $size): ?array
@@ -207,7 +318,6 @@ function bike_ensure_web_variant(array $bike, int $size): ?array
 
 function bike_pregenerate_web_variants(array $bike, array $sizes = [240, 800]): void
 {
-    // Bij één nieuwe upload zijn twee sequentiële varianten veilig; dit is geen bulkactie.
     foreach ($sizes as $size) {
         bike_generate_web_variant($bike, (int) $size);
     }
