@@ -23,6 +23,19 @@ require_once __DIR__ . '/reservation_status.php';
 load_env(ROOT_PATH . '/.env');
 date_default_timezone_set(env('APP_TIMEZONE', 'Europe/Brussels'));
 
+if (PHP_SAPI !== 'cli') {
+    $scriptName = str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? ''));
+    if (str_ends_with($scriptName, '/public/bikes.php')) {
+        $appUrl = rtrim((string) env('APP_URL', ''), '/');
+        if ($appUrl !== '') {
+            $query = $_GET;
+            $suffix = $query ? '?' . http_build_query($query) : '';
+            header('Location: ' . $appUrl . '/bikes.php' . $suffix, true, 302);
+            exit;
+        }
+    }
+}
+
 $appEnv = strtolower(trim((string) env('APP_ENV', 'production')));
 $isProduction = $appEnv === 'production';
 $appDebug = filter_var(env('APP_DEBUG', '0'), FILTER_VALIDATE_BOOLEAN);
