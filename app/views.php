@@ -60,10 +60,12 @@ function render_footer(): void
 {
     $appVersion = is_file(ROOT_PATH . '/public/assets/app.js') ? (string) filemtime(ROOT_PATH . '/public/assets/app.js') : '1';
     $eidBridgeVersion = is_file(ROOT_PATH . '/public/assets/eid-bridge.js') ? (string) filemtime(ROOT_PATH . '/public/assets/eid-bridge.js') : '1';
+    $bikeOptimizeVersion = is_file(ROOT_PATH . '/public/assets/bike-optimize.js') ? (string) filemtime(ROOT_PATH . '/public/assets/bike-optimize.js') : '1';
     ?>
     </main>
     <script src="assets/app.js?v=<?= e($appVersion) ?>" defer></script>
     <script src="assets/eid-bridge.js?v=<?= e($eidBridgeVersion) ?>" defer></script>
+    <script src="assets/bike-optimize.js?v=<?= e($bikeOptimizeVersion) ?>" defer></script>
     </body>
     </html>
     <?php
