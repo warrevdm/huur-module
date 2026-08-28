@@ -28,14 +28,22 @@ foreach ($bikes as $bike) {
 natcasesort($categories);
 $categories = array_values($categories);
 
-$now = new DateTimeImmutable('now', new DateTimeZone('Europe/Brussels'));
-$provisionalEnd = $now->modify('+30 days');
+$timezone = new DateTimeZone('Europe/Brussels');
+$now = new DateTimeImmutable('now', $timezone);
+$defaultReturnDate = $now->modify('+1 day')->format('Y-m-d');
+$returnDate = trim((string) ($_POST['return_date'] ?? $defaultReturnDate));
+$returnAt = parse_datetime($returnDate, '17:00');
 
 if ($method === 'POST') {
     verify_csrf();
 
-    if ($name === '' || $selectedBikeId < 1) {
-        flash('error', 'Vul de naam in en kies een fiets.');
+    if ($name === '' || $selectedBikeId < 1 || $returnDate === '') {
+        flash('error', 'Vul de naam en retourdatum in en kies een fiets.');
+        redirect('quick-replacement.php');
+    }
+
+    if (!$returnAt || $returnAt <= $now) {
+        flash('error', 'Kies een geldige retourdatum in de toekomst.');
         redirect('quick-replacement.php');
     }
 
@@ -51,9 +59,9 @@ if ($method === 'POST') {
     }
 
     $startAt = $now->format('Y-m-d H:i:s');
-    $endAt = $provisionalEnd->format('Y-m-d H:i:s');
+    $endAt = $returnAt->format('Y-m-d H:i:s');
     if (reservation_conflicts($selectedBikeId, $startAt, $endAt)) {
-        flash('error', $bike['code'] . ' — ' . $bike['name'] . ' is al ingepland in de komende 30 dagen.');
+        flash('error', $bike['code'] . ' — ' . $bike['name'] . ' is niet beschikbaar tot ' . $returnAt->format('d/m/Y') . '.');
         redirect('quick-replacement.php');
     }
 
@@ -77,7 +85,7 @@ if ($method === 'POST') {
             ':start_at' => $startAt,
             ':end_at' => $endAt,
             ':status' => 'picked_up',
-            ':notes' => 'Snelle fietsregistratie via werkplaats. Voorlopige einddatum: ' . $provisionalEnd->format('d/m/Y H:i') . '.',
+            ':notes' => 'Snelle fietsregistratie via werkplaats. Retour voorzien op ' . $returnAt->format('d/m/Y') . ' om 17:00.',
             ':created_by' => (int) current_user()['id'],
         ]);
         $reservationId = (int) db()->lastInsertId();
@@ -97,12 +105,12 @@ if ($method === 'POST') {
             'category' => (string) ($bike['category'] ?? ''),
             'usage_type' => (string) ($bike['usage_type'] ?? ''),
             'start_at' => $startAt,
-            'provisional_end_at' => $endAt,
+            'return_at' => $endAt,
             'total_price' => 0,
         ]);
 
         db()->commit();
-        flash('success', $bike['code'] . ' — ' . $bike['name'] . ' is meegegeven aan ' . $name . '.');
+        flash('success', $bike['code'] . ' — ' . $bike['name'] . ' is meegegeven aan ' . $name . ' tot ' . $returnAt->format('d/m/Y') . '.');
         redirect('planning.php');
     } catch (Throwable $e) {
         if (db()->inTransaction()) {
@@ -113,20 +121,23 @@ if ($method === 'POST') {
     }
 }
 
+$availabilityEnd = ($returnAt && $returnAt > $now)
+    ? $returnAt
+    : $now->modify('+1 day')->setTime(17, 0);
 $availability = bike_availability(
     $now->format('Y-m-d H:i:s'),
-    $provisionalEnd->format('Y-m-d H:i:s')
+    $availabilityEnd->format('Y-m-d H:i:s')
 );
 
 render_header('Snelle vervangfiets');
 ?>
-<section class="quick-replacement-shell" data-quick-replacement>
+<section class="quick-replacement-shell" data-quick-replacement data-availability-url="api-bike-availability.php" data-start-date="<?= e($now->format('Y-m-d')) ?>" data-start-time="<?= e($now->format('H:i')) ?>">
     <div class="card quick-replacement-card">
         <div class="quick-replacement-heading">
             <div>
                 <span class="quick-replacement-kicker">Werkplaats</span>
                 <h2>Snel een fiets meegeven</h2>
-                <p class="muted">Alleen naam en fiets. De fiets wordt meteen als afgehaald geregistreerd.</p>
+                <p class="muted">Naam, retourdatum en fiets. De fiets wordt meteen als afgehaald geregistreerd.</p>
             </div>
             <a class="button button-secondary" href="planning.php">Terug naar planning</a>
         </div>
@@ -134,15 +145,22 @@ render_header('Snelle vervangfiets');
         <form method="post" class="stack quick-replacement-form">
             <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
 
-            <div class="field quick-name-field">
-                <label for="quick-customer-name">Naam klant *</label>
-                <input id="quick-customer-name" name="customer_name" required autofocus autocomplete="name" placeholder="Voornaam en naam" value="<?= e($name) ?>">
+            <div class="quick-replacement-basics">
+                <div class="field quick-name-field">
+                    <label for="quick-customer-name">Naam klant *</label>
+                    <input id="quick-customer-name" name="customer_name" required autofocus autocomplete="name" placeholder="Voornaam en naam" value="<?= e($name) ?>">
+                </div>
+                <div class="field quick-return-field">
+                    <label for="quick-return-date">Retourdatum *</label>
+                    <input id="quick-return-date" name="return_date" type="date" required min="<?= e($now->format('Y-m-d')) ?>" value="<?= e($returnDate) ?>" data-quick-return-date>
+                    <span class="help">Retouruur wordt automatisch op 17:00 gezet.</span>
+                </div>
             </div>
 
             <div class="field">
                 <div class="actions actions-between">
                     <label>Kies fiets *</label>
-                    <span class="help">Voorlopig geblokkeerd voor 30 dagen of tot je hem als teruggebracht markeert.</span>
+                    <span class="help" data-quick-period-label>Beschikbaarheid wordt gecontroleerd tot <?= e($availabilityEnd->format('d/m/Y')) ?> om 17:00.</span>
                 </div>
 
                 <div class="quick-category-filters" role="group" aria-label="Filter op soort fiets">
@@ -165,6 +183,7 @@ render_header('Snelle vervangfiets');
                             <label
                                 class="quick-bike-card <?= $available ? '' : 'quick-bike-card-disabled' ?>"
                                 data-quick-bike-card
+                                data-bike-id="<?= (int) $bike['id'] ?>"
                                 data-category="<?= e(mb_strtolower($category, 'UTF-8')) ?>"
                                 data-available="<?= $available ? '1' : '0' ?>"
                             >
@@ -190,7 +209,7 @@ render_header('Snelle vervangfiets');
                                     </span>
                                     <span><?= e((string) $bike['name']) ?></span>
                                     <small><?= e(bike_usage_type_label((string) ($bike['usage_type'] ?? 'rental'))) ?></small>
-                                    <span class="quick-bike-state <?= $available ? 'quick-bike-state-available' : 'quick-bike-state-unavailable' ?>">
+                                    <span class="quick-bike-state <?= $available ? 'quick-bike-state-available' : 'quick-bike-state-unavailable' ?>" data-quick-bike-state>
                                         <?= $available ? 'Beschikbaar' : e((string) ($state['reason'] ?? 'Niet beschikbaar')) ?>
                                     </span>
                                 </span>
