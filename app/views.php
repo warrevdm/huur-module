@@ -12,6 +12,7 @@ function render_header(string $title, bool $showNav = true): void
     $contractVersion = is_file(ROOT_PATH . '/public/assets/contract.css') ? (string) filemtime(ROOT_PATH . '/public/assets/contract.css') : '1';
     $brandingVersion = is_file(ROOT_PATH . '/public/assets/branding.css') ? (string) filemtime(ROOT_PATH . '/public/assets/branding.css') : '1';
     $eidBridgeStyleVersion = is_file(ROOT_PATH . '/public/assets/eid-bridge.css') ? (string) filemtime(ROOT_PATH . '/public/assets/eid-bridge.css') : '1';
+    $reservationNewStyleVersion = is_file(ROOT_PATH . '/public/assets/reservation-new.css') ? (string) filemtime(ROOT_PATH . '/public/assets/reservation-new.css') : '1';
     ?>
     <!doctype html>
     <html lang="nl-BE">
@@ -25,6 +26,7 @@ function render_header(string $title, bool $showNav = true): void
         <link rel="stylesheet" href="assets/contract.css?v=<?= e($contractVersion) ?>">
         <link rel="stylesheet" href="assets/branding.css?v=<?= e($brandingVersion) ?>">
         <link rel="stylesheet" href="assets/eid-bridge.css?v=<?= e($eidBridgeStyleVersion) ?>">
+        <link rel="stylesheet" href="assets/reservation-new.css?v=<?= e($reservationNewStyleVersion) ?>">
     </head>
     <body>
     <?php if ($showNav && $user): ?>
@@ -52,7 +54,7 @@ function render_header(string $title, bool $showNav = true): void
         <?php foreach ($flashes as $flash): ?>
             <div class="alert alert-<?= e($flash['type']) ?>"><?= e($flash['message']) ?></div>
         <?php endforeach; ?>
-        <div class="page-heading"><h1><?= e($title) ?></h1></div>
+        <div class="page-heading"><h1><?= e($title) ?> </h1></div>
     <?php
 }
 
@@ -62,12 +64,14 @@ function render_footer(): void
     $eidBridgeVersion = is_file(ROOT_PATH . '/public/assets/eid-bridge.js') ? (string) filemtime(ROOT_PATH . '/public/assets/eid-bridge.js') : '1';
     $bikeOptimizeVersion = is_file(ROOT_PATH . '/public/assets/bike-optimize.js') ? (string) filemtime(ROOT_PATH . '/public/assets/bike-optimize.js') : '1';
     $bikeRotateVersion = is_file(ROOT_PATH . '/public/assets/bike-rotate.js') ? (string) filemtime(ROOT_PATH . '/public/assets/bike-rotate.js') : '1';
+    $reservationNewVersion = is_file(ROOT_PATH . '/public/assets/reservation-new.js') ? (string) filemtime(ROOT_PATH . '/public/assets/reservation-new.js') : '1';
     ?>
     </main>
     <script src="assets/app.js?v=<?= e($appVersion) ?>" defer></script>
     <script src="assets/eid-bridge.js?v=<?= e($eidBridgeVersion) ?>" defer></script>
     <script src="assets/bike-optimize.js?v=<?= e($bikeOptimizeVersion) ?>" defer></script>
     <script src="assets/bike-rotate.js?v=<?= e($bikeRotateVersion) ?>" defer></script>
+    <script src="assets/reservation-new.js?v=<?= e($reservationNewVersion) ?>" defer></script>
     </body>
     </html>
     <?php
