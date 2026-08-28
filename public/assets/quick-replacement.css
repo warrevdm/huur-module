@@ -4,7 +4,8 @@
 .quick-replacement-heading h2 { margin: 4px 0 6px; }
 .quick-replacement-kicker { display: inline-flex; padding: 5px 9px; border-radius: 999px; background: #e7f6e2; color: #245f21; font-size: .76rem; font-weight: 850; text-transform: uppercase; letter-spacing: .06em; }
 .quick-replacement-form { gap: 24px; }
-.quick-name-field input { font-size: 1.1rem; min-height: 50px; }
+.quick-replacement-basics { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(220px, .8fr); gap: 16px; align-items: start; }
+.quick-name-field input, .quick-return-field input { font-size: 1.1rem; min-height: 50px; }
 .quick-category-filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 8px; }
 .quick-filter { min-height: 38px; padding: 7px 12px; border: 1px solid #c7d2c8; border-radius: 999px; background: #f5f8f5; color: var(--ink); font: inherit; font-size: .86rem; font-weight: 750; cursor: pointer; }
 .quick-filter:hover { border-color: #99bc92; background: #edf5eb; }
@@ -40,6 +41,7 @@
 @media (max-width: 640px) {
     .quick-replacement-card { padding: 18px; }
     .quick-replacement-heading { flex-direction: column; }
+    .quick-replacement-basics { grid-template-columns: 1fr; }
     .quick-category-filters { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
     .quick-filter { flex: 0 0 auto; }
     .quick-bike-grid { grid-template-columns: 1fr; }
