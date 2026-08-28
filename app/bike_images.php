@@ -60,7 +60,6 @@ function bike_image_variant_info(array $bike, int $size): ?array
     $filename = $base . '-' . $size . '-' . $version . '.webp';
     $cacheDir = ROOT_PATH . '/public/assets/bike-cache';
     $cachePath = $cacheDir . '/' . $filename;
-    $appUrl = rtrim((string) env('APP_URL', ''), '/');
     $relativeUrl = 'assets/bike-cache/' . rawurlencode($filename);
 
     return [
@@ -70,7 +69,8 @@ function bike_image_variant_info(array $bike, int $size): ?array
         'cache_dir' => $cacheDir,
         'cache_path' => $cachePath,
         'filename' => $filename,
-        'url' => $appUrl !== '' ? $appUrl . '/' . $relativeUrl : $relativeUrl,
+        // Bewust same-origin en relatief: voorkomt CSP-blokkades bij www/non-www.
+        'url' => $relativeUrl,
     ];
 }
 
@@ -349,8 +349,7 @@ function bike_photo_src(array $bike, int $size = 240): string
 
     $id = (int) ($bike['id'] ?? 0);
     $version = rawurlencode((string) ($bike['updated_at'] ?? ''));
-    $appUrl = rtrim((string) env('APP_URL', ''), '/');
-    $path = 'bike-photo.php?id=' . $id . '&size=' . $size . '&v=' . $version;
 
-    return $appUrl !== '' ? $appUrl . '/' . $path : $path;
+    // Relatieve URL houdt de request op exact dezelfde host en onder /huur-module/.
+    return 'bike-photo.php?id=' . $id . '&size=' . $size . '&v=' . $version;
 }
