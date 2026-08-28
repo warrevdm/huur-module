@@ -190,15 +190,51 @@ $availability = ($startAt && $endAt && $endAt > $startAt)
 
 render_header('Nieuwe verhuur');
 ?>
-<section class="card">
-<form method="post" enctype="multipart/form-data" class="stack" data-reservation-form data-availability-url="api-bike-availability.php">
+<form method="post" enctype="multipart/form-data" class="rental-create-layout" data-reservation-form data-availability-url="api-bike-availability.php" data-visual-bike-picker>
     <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
     <input type="hidden" name="price_calculation_mode" value="manual" data-price-calculation-mode>
 
-    <div class="form-grid">
-        <div class="field field-full">
-            <label>Fietsen * <span class="muted">(meerdere selecties mogelijk)</span></label>
-            <select name="bike_ids[]" multiple size="<?= min(12, max(6, count($bikes))) ?>" required data-bike-select>
+    <div class="rental-create-main">
+        <section class="card rental-step-card rental-period-card">
+            <div class="rental-step-heading">
+                <span class="rental-step-number">1</span>
+                <div>
+                    <h2>Wanneer?</h2>
+                    <p class="muted">Kies afhaal- en retourmoment. Beschikbaarheid past zich automatisch aan.</p>
+                </div>
+            </div>
+            <div class="rental-period-grid">
+                <div class="field"><label>Startdatum</label><input name="start_date" type="date" value="<?= e($startDate) ?>" required></div>
+                <div class="field"><label>Afhalen</label><input name="start_time" type="time" value="<?= e($startTime) ?>" required></div>
+                <div class="field"><label>Einddatum</label><input name="end_date" type="date" value="<?= e($endDate) ?>" required></div>
+                <div class="field"><label>Retour</label><input name="end_time" type="time" value="<?= e($endTime) ?>" required></div>
+            </div>
+            <div class="availability-message availability-loading" data-availability-message aria-live="polite">Beschikbaarheid controleren…</div>
+        </section>
+
+        <section class="card rental-step-card">
+            <div class="rental-step-heading rental-step-heading-split">
+                <div class="rental-step-heading-main">
+                    <span class="rental-step-number">2</span>
+                    <div>
+                        <h2>Kies de fiets</h2>
+                        <p class="muted">Klik op een fiets om ze toe te voegen. Meerdere fietsen kan zonder Ctrl of Command.</p>
+                    </div>
+                </div>
+                <span class="rental-selected-count" data-rental-selected-count>0 geselecteerd</span>
+            </div>
+
+            <div class="rental-bike-toolbar">
+                <input type="search" placeholder="Zoek code, model of categorie…" data-rental-bike-search aria-label="Fiets zoeken">
+                <div class="rental-bike-filters" data-rental-bike-filters>
+                    <button type="button" class="button button-secondary is-active" data-rental-filter="ALL">Alles</button>
+                    <button type="button" class="button button-secondary" data-rental-filter="H">Huur</button>
+                    <button type="button" class="button button-secondary" data-rental-filter="V">Vervang</button>
+                    <button type="button" class="button button-secondary" data-rental-filter="T">Test</button>
+                </div>
+            </div>
+
+            <select name="bike_ids[]" multiple required data-bike-select data-visual-picker class="rental-native-select" aria-hidden="true" tabindex="-1">
                 <?php foreach ($bikes as $bike):
                     $state = $availability[(int) $bike['id']] ?? [
                         'available' => (string) $bike['status'] === 'active',
@@ -209,6 +245,7 @@ render_header('Nieuwe verhuur');
                     $usageType = bike_usage_type_label((string) ($bike['usage_type'] ?? 'rental'));
                     $baseLabel = $bike['code'] . ' — ' . $bike['name'] . ' (' . $bike['category'] . ' · ' . $usageType . ')';
                     $pricingRule = rental_pricing_rule($bike);
+                    $photoUrl = !empty($bike['photo_stored_name']) ? bike_photo_src($bike, 480) : '';
                 ?>
                     <option value="<?= (int) $bike['id'] ?>"
                             data-base-label="<?= e($baseLabel) ?>"
@@ -216,68 +253,118 @@ render_header('Nieuwe verhuur');
                             data-bike-name="<?= e((string) $bike['name']) ?>"
                             data-bike-category="<?= e((string) $bike['category']) ?>"
                             data-bike-usage-type="<?= e((string) ($bike['usage_type'] ?? 'rental')) ?>"
+                            data-bike-usage-label="<?= e($usageType) ?>"
+                            data-bike-photo="<?= e($photoUrl) ?>"
                             data-price-supported="<?= $pricingRule !== null ? '1' : '0' ?>"
                             data-price-day="<?= $pricingRule !== null ? e(number_format((float) $pricingRule['day_rate'], 2, '.', '')) : '' ?>"
                             data-price-week="<?= $pricingRule !== null ? e(number_format((float) $pricingRule['week_rate'], 2, '.', '')) : '' ?>"
-                            data-price-label="<?= $pricingRule !== null ? e((string) $pricingRule['label']) : 'Geen automatisch tarief' ?>"
+                            data-price-label="<?= $pricingRule !== null ? e((string) $pricingRule['label']) : 'Prijs manueel' ?>"
                             <?= $selected ? 'selected' : '' ?>
                             <?= !$state['available'] ? 'disabled' : '' ?>><?= e($baseLabel . ' · ' . $suffix) ?></option>
                 <?php endforeach; ?>
             </select>
-            <span class="help">Windows: houd Ctrl ingedrukt. Mac: houd Command ingedrukt. De beschikbaarheid vernieuwt automatisch bij elke datum- of uurwijziging.</span>
-            <div class="availability-message" data-availability-message aria-live="polite"></div>
-        </div>
-        <div class="field"><label>Startdatum *</label><input name="start_date" type="date" value="<?= e($startDate) ?>" required></div>
-        <div class="field"><label>Afhaaluur *</label><input name="start_time" type="time" value="<?= e($startTime) ?>" required></div>
-        <div class="field"><label>Einddatum *</label><input name="end_date" type="date" value="<?= e($endDate) ?>" required></div>
-        <div class="field"><label>Retouruur *</label><input name="end_time" type="time" value="<?= e($endTime) ?>" required></div>
-    </div>
 
-    <hr><h2>Klantgegevens</h2>
-    <div class="form-grid">
-        <div class="field"><label>Volledige naam *</label><input name="customer_name" required></div>
-        <div class="field"><label>Telefoon</label><input name="customer_phone" type="tel"></div>
-        <div class="field"><label>E-mail voor contractkopie *</label><input name="customer_email" type="email" required></div>
-        <div class="field"><label>Adres</label><input name="customer_address"></div>
-
-        <div class="field field-full">
-            <label>Identiteitscontrole bij afhaling</label>
-            <label class="checkbox-row">
-                <input type="checkbox" name="eid_physical_checked" value="1">
-                Fysieke Belgische eID gecontroleerd
-            </label>
-            <label class="checkbox-row">
-                <input type="checkbox" name="eid_photo_match" value="1">
-                Foto op de fysieke eID visueel overeenkomstig met de huurder
-            </label>
-            <span class="help">
-                Bij bevestiging registreert het systeem automatisch de ingelogde medewerker en het tijdstip.
-                Rijksregisternummer en eID-foto worden niet opgeslagen.
-            </span>
-        </div>
-
-        <div class="field field-full"><label>Identiteitsdocument (optioneel)</label><input name="identity_document" type="file" accept="image/jpeg,image/png,application/pdf"><span class="help">Gebruik bij voorkeur visuele identificatie. Upload alleen met geldige wettelijke basis en bewaartermijn.</span></div>
-        <div class="field"><label>Automatisch verwijderen na</label><input name="retention_until" type="date" value="<?= e((new DateTimeImmutable($endDate))->modify('+' . (int) env('ID_RETENTION_DAYS', '30') . ' days')->format('Y-m-d')) ?>"></div>
-    </div>
-
-    <hr><h2>Prijs en betaling</h2>
-    <div class="form-grid">
-        <div class="field field-full">
-            <label>Verhuurprijs berekenen</label>
-            <div class="actions">
-                <button class="button button-secondary" type="button" data-calculate-rental-price>Bereken verhuurprijs</button>
+            <div class="rental-bike-picker" data-rental-bike-picker>
+                <?php foreach ($bikes as $index => $bike):
+                    $state = $availability[(int) $bike['id']] ?? [
+                        'available' => (string) $bike['status'] === 'active',
+                        'reason' => (string) $bike['status'] === 'active' ? null : bike_status_label((string) $bike['status']),
+                    ];
+                    $selected = in_array((int) $bike['id'], $selectedBikeIds, true);
+                    $pricingRule = rental_pricing_rule($bike);
+                    $usageType = bike_usage_type_label((string) ($bike['usage_type'] ?? 'rental'));
+                    $photoUrl = !empty($bike['photo_stored_name']) ? bike_photo_src($bike, 480) : '';
+                ?>
+                    <button type="button"
+                            class="rental-bike-option <?= $selected ? 'is-selected' : '' ?> <?= !$state['available'] ? 'is-unavailable' : '' ?>"
+                            data-rental-bike-card
+                            data-bike-id="<?= (int) $bike['id'] ?>"
+                            data-bike-code="<?= e((string) $bike['code']) ?>"
+                            data-bike-name="<?= e((string) $bike['name']) ?>"
+                            data-bike-category="<?= e((string) $bike['category']) ?>"
+                            data-bike-group="<?= e(substr(strtoupper(trim((string) $bike['code'])), 0, 1)) ?>"
+                            aria-pressed="<?= $selected ? 'true' : 'false' ?>"
+                            <?= !$state['available'] ? 'disabled' : '' ?>>
+                        <span class="rental-bike-image">
+                            <?php if ($photoUrl !== ''): ?>
+                                <img src="<?= e($photoUrl) ?>" alt="" loading="<?= $index < 6 ? 'eager' : 'lazy' ?>" decoding="async">
+                            <?php else: ?>
+                                <span class="rental-bike-no-photo">Geen foto</span>
+                            <?php endif; ?>
+                            <span class="rental-bike-check" aria-hidden="true">✓</span>
+                        </span>
+                        <span class="rental-bike-content">
+                            <span class="rental-bike-topline"><strong><?= e((string) $bike['code']) ?></strong><span data-rental-card-status><?= $state['available'] ? 'Beschikbaar' : e((string) ($state['reason'] ?: 'Niet beschikbaar')) ?></span></span>
+                            <span class="rental-bike-name"><?= e((string) $bike['name']) ?></span>
+                            <span class="rental-bike-meta"><?= e((string) $bike['category']) ?> · <?= e($usageType) ?></span>
+                            <span class="rental-bike-price"><?= $pricingRule !== null ? e((string) $pricingRule['label']) : 'Prijs manueel' ?></span>
+                        </span>
+                    </button>
+                <?php endforeach; ?>
             </div>
-            <span class="help">E-bike: €30/dag of €150/week · Stadsfiets: €15/dag of €75/week. De voordeligste combinatie van dag- en weektarief wordt gebruikt.</span>
-            <div class="availability-message" data-price-breakdown aria-live="polite">Selecteer fiets(en) en een geldige huurperiode.</div>
-        </div>
-        <div class="field"><label>Status</label><select name="status"><option value="reserved">Gereserveerd</option><option value="confirmed">Bevestigd</option></select></div>
-        <div class="field"><label>Totaalprijs</label><input name="total_price" type="number" min="0" step="0.01" value="0" data-total-price><span class="help">Mag manueel worden aangepast bij uitzonderingen.</span></div>
-        <div class="field"><label>Betaling bij reservatie</label><select name="initial_payment_method" data-payment-method><option value="">Nog niet betaald</option><option value="bancontact">Bancontact</option><option value="cash">Cash</option></select></div>
-        <div class="field"><label>Betaald bedrag</label><input name="initial_payment_amount" type="number" min="0" step="0.01" value="0" data-payment-amount></div>
-        <div class="field field-full"><label>Interne notities</label><textarea name="notes"></textarea></div>
+        </section>
+
+        <section class="card rental-step-card">
+            <div class="rental-step-heading">
+                <span class="rental-step-number">3</span>
+                <div>
+                    <h2>Wie huurt?</h2>
+                    <p class="muted">Enkel de noodzakelijke klantgegevens staan standaard open.</p>
+                </div>
+            </div>
+            <div class="form-grid rental-customer-grid">
+                <div class="field"><label>Volledige naam *</label><input name="customer_name" autocomplete="name" required></div>
+                <div class="field"><label>E-mail *</label><input name="customer_email" type="email" autocomplete="email" required></div>
+                <div class="field"><label>Telefoon</label><input name="customer_phone" type="tel" autocomplete="tel"></div>
+                <div class="field"><label>Adres</label><input name="customer_address" autocomplete="street-address"></div>
+            </div>
+
+            <details class="rental-extra-details">
+                <summary>Extra gegevens: eID, document en notities</summary>
+                <div class="rental-extra-content">
+                    <div class="field field-full">
+                        <label>Identiteitscontrole bij afhaling</label>
+                        <label class="checkbox-row"><input type="checkbox" name="eid_physical_checked" value="1"> Fysieke Belgische eID gecontroleerd</label>
+                        <label class="checkbox-row"><input type="checkbox" name="eid_photo_match" value="1"> Foto op fysieke eID komt overeen met huurder</label>
+                        <span class="help">Bij bevestiging worden medewerker en tijdstip geregistreerd. Rijksregisternummer en eID-foto worden niet opgeslagen.</span>
+                    </div>
+                    <div class="form-grid">
+                        <div class="field"><label>Identiteitsdocument (optioneel)</label><input name="identity_document" type="file" accept="image/jpeg,image/png,application/pdf"></div>
+                        <div class="field"><label>Automatisch verwijderen na</label><input name="retention_until" type="date" value="<?= e((new DateTimeImmutable($endDate))->modify('+' . (int) env('ID_RETENTION_DAYS', '30') . ' days')->format('Y-m-d')) ?>"></div>
+                        <div class="field field-full"><label>Interne notities</label><textarea name="notes" placeholder="Optionele informatie voor showroom of werkplaats"></textarea></div>
+                    </div>
+                </div>
+            </details>
+        </section>
     </div>
 
-    <div class="actions"><button class="button">Opslaan en gezamenlijk contract opmaken</button><a class="button button-secondary" href="planning.php">Annuleren</a></div>
+    <aside class="card rental-summary-card">
+        <div class="rental-summary-heading">
+            <span class="rental-step-number">✓</span>
+            <div><h2>Samenvatting</h2><p class="muted">Alles op één plek vóór je opslaat.</p></div>
+        </div>
+
+        <div class="rental-summary-period" data-rental-summary-period>Periode wordt berekend…</div>
+        <div class="rental-summary-bikes" data-rental-summary-bikes>
+            <div class="rental-summary-empty">Nog geen fiets geselecteerd.</div>
+        </div>
+
+        <button class="button button-secondary rental-hidden-price-button" type="button" data-calculate-rental-price>Prijs herberekenen</button>
+        <div class="availability-message" data-price-breakdown aria-live="polite">Selecteer fiets(en) en een geldige huurperiode.</div>
+
+        <div class="rental-total-block">
+            <span>Totaalprijs</span>
+            <div class="rental-total-input"><span>€</span><input name="total_price" type="number" min="0" step="0.01" value="0" data-total-price aria-label="Totaalprijs"></div>
+            <small>Je kan het bedrag manueel aanpassen bij uitzonderingen.</small>
+        </div>
+
+        <div class="field"><label>Status</label><select name="status"><option value="reserved">Gereserveerd</option><option value="confirmed">Bevestigd</option></select></div>
+        <div class="field"><label>Betaling</label><select name="initial_payment_method" data-payment-method><option value="">Nog niet betaald</option><option value="bancontact">Bancontact</option><option value="cash">Cash</option></select></div>
+        <div class="field"><label>Betaald bedrag</label><input name="initial_payment_amount" type="number" min="0" step="0.01" value="0" data-payment-amount></div>
+
+        <button class="button button-full rental-primary-submit" type="submit">Verhuur aanmaken</button>
+        <a class="button button-secondary button-full" href="planning.php">Annuleren</a>
+        <p class="help rental-contract-note">Na opslaan ga je rechtstreeks naar het gezamenlijke contract.</p>
+    </aside>
 </form>
-</section>
 <?php render_footer();
