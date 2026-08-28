@@ -68,6 +68,7 @@ function render_footer(): void
     $bikeOptimizeVersion = is_file(ROOT_PATH . '/public/assets/bike-optimize.js') ? (string) filemtime(ROOT_PATH . '/public/assets/bike-optimize.js') : '1';
     $bikeRotateVersion = is_file(ROOT_PATH . '/public/assets/bike-rotate.js') ? (string) filemtime(ROOT_PATH . '/public/assets/bike-rotate.js') : '1';
     $reservationNewVersion = is_file(ROOT_PATH . '/public/assets/reservation-new.js') ? (string) filemtime(ROOT_PATH . '/public/assets/reservation-new.js') : '1';
+    $quickReplacementVersion = is_file(ROOT_PATH . '/public/assets/quick-replacement.js') ? (string) filemtime(ROOT_PATH . '/public/assets/quick-replacement.js') : '1';
     ?>
     </main>
     <script src="assets/app.js?v=<?= e($appVersion) ?>" defer></script>
@@ -75,6 +76,7 @@ function render_footer(): void
     <script src="assets/bike-optimize.js?v=<?= e($bikeOptimizeVersion) ?>" defer></script>
     <script src="assets/bike-rotate.js?v=<?= e($bikeRotateVersion) ?>" defer></script>
     <script src="assets/reservation-new.js?v=<?= e($reservationNewVersion) ?>" defer></script>
+    <script src="assets/quick-replacement.js?v=<?= e($quickReplacementVersion) ?>" defer></script>
     </body>
     </html>
     <?php
