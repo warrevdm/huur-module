@@ -20,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const priceBreakdown = reservationForm?.querySelector('[data-price-breakdown]');
   const totalPrice = reservationForm?.querySelector('[data-total-price]');
   const priceMode = reservationForm?.querySelector('[data-price-calculation-mode]');
+  const hasVisualBikePicker = Boolean(reservationForm?.hasAttribute('data-visual-bike-picker'));
   let availabilityTimer = null;
 
   const bikeCodeParts = (option) => {
@@ -304,7 +305,9 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   if (reservationForm && bikeSelect) {
-    setupBikeCodeFilters();
+    if (!hasVisualBikePicker) {
+      setupBikeCodeFilters();
+    }
     reservationForm.querySelectorAll('[name="start_date"], [name="start_time"], [name="end_date"], [name="end_time"]').forEach((field) => {
       field.addEventListener('change', () => {
         markPriceStale();
