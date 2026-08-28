@@ -9,7 +9,16 @@ function bike_image_allowed_sizes(): array
 
 function bike_image_normalize_size(int $size): int
 {
-    return in_array($size, bike_image_allowed_sizes(), true) ? $size : 800;
+    // Bestaande UI-calls blijven compatibel, maar krijgen scherpere varianten.
+    // Overzicht: 240 -> 480 px. Bewerkweergave: 800 -> 1200 px.
+    if ($size === 240) {
+        return 480;
+    }
+    if ($size === 800) {
+        return 1200;
+    }
+
+    return in_array($size, bike_image_allowed_sizes(), true) ? $size : 1200;
 }
 
 function bike_image_detect_mime(string $path): string
@@ -84,7 +93,14 @@ function bike_image_memory_limit_bytes(): int
 
 function bike_image_quality(int $size): int
 {
-    return $size <= 240 ? 64 : ($size <= 800 ? 76 : 82);
+    if ($size <= 480) {
+        return 82;
+    }
+    if ($size <= 1200) {
+        return 86;
+    }
+
+    return 88;
 }
 
 function bike_generate_web_variant_with_imagick(array $variant, string $tmpPath): bool
