@@ -7,11 +7,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const buttons = Array.from(shell.querySelectorAll('[data-quick-filter]'));
   const cards = Array.from(shell.querySelectorAll('[data-quick-bike-card]'));
   const summary = shell.querySelector('[data-quick-filter-summary]');
+  const startDate = shell.querySelector('[data-quick-start-date]');
   const returnDate = shell.querySelector('[data-quick-return-date]');
   const periodLabel = shell.querySelector('[data-quick-period-label]');
   const availabilityUrl = shell.dataset.availabilityUrl || 'api-bike-availability.php';
-  const startDate = shell.dataset.startDate || '';
-  const startTime = shell.dataset.startTime || '';
+  const today = shell.dataset.today || '';
+  const currentTime = shell.dataset.currentTime || '09:00';
   let activeFilter = 'all';
   let availabilityTimer = null;
 
@@ -20,6 +21,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const [year, month, day] = value.split('-');
     return year && month && day ? `${day}/${month}/${year}` : value;
   };
+
+  const startTimeForDate = () => startDate?.value === today ? currentTime : '09:00';
 
   const applyFilter = (filter = activeFilter) => {
     activeFilter = filter;
@@ -41,9 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
       button.setAttribute('aria-pressed', active ? 'true' : 'false');
     }
 
-    if (summary) {
-      summary.textContent = `${visible} fiets(en) zichtbaar · ${available} beschikbaar`;
-    }
+    if (summary) summary.textContent = `${visible} fiets(en) zichtbaar · ${available} beschikbaar`;
   };
 
   const setCardAvailability = (card, available, reason = '') => {
@@ -65,15 +66,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const refreshAvailability = async () => {
-    if (!returnDate?.value || !startDate || !startTime) return;
+  const syncDateLimits = () => {
+    if (!startDate || !returnDate) return;
+    if (today) startDate.min = today;
+    returnDate.min = startDate.value || today;
+    if (returnDate.value && startDate.value && returnDate.value < startDate.value) {
+      returnDate.value = startDate.value;
+    }
+  };
 
+  const refreshAvailability = async () => {
+    if (!startDate?.value || !returnDate?.value) return;
+
+    const startTime = startTimeForDate();
     if (periodLabel) {
-      periodLabel.textContent = `Beschikbaarheid controleren tot ${formatDate(returnDate.value)} om 17:00…`;
+      periodLabel.textContent = `Beschikbaarheid controleren voor ${formatDate(startDate.value)} ${startTime} → ${formatDate(returnDate.value)} 17:00…`;
     }
 
     const params = new URLSearchParams({
-      start_date: startDate,
+      start_date: startDate.value,
       start_time: startTime,
       end_date: returnDate.value,
       end_time: '17:00',
@@ -95,7 +106,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (periodLabel) {
-        periodLabel.textContent = `Beschikbaarheid gecontroleerd tot ${formatDate(returnDate.value)} om 17:00.`;
+        periodLabel.textContent = `Beschikbaarheid: ${formatDate(startDate.value)} ${startTime} → ${formatDate(returnDate.value)} 17:00.`;
       }
       applyFilter();
     } catch (error) {
@@ -105,14 +116,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  const scheduleAvailability = () => {
+    syncDateLimits();
+    window.clearTimeout(availabilityTimer);
+    availabilityTimer = window.setTimeout(refreshAvailability, 120);
+  };
+
   for (const button of buttons) {
     button.addEventListener('click', () => applyFilter(button.dataset.quickFilter || 'all'));
   }
 
-  returnDate?.addEventListener('change', () => {
-    window.clearTimeout(availabilityTimer);
-    availabilityTimer = window.setTimeout(refreshAvailability, 120);
-  });
+  startDate?.addEventListener('change', scheduleAvailability);
+  returnDate?.addEventListener('change', scheduleAvailability);
 
+  syncDateLimits();
   applyFilter('all');
 });
