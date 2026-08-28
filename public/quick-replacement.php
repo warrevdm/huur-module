@@ -9,18 +9,24 @@ $method = (string) ($_SERVER['REQUEST_METHOD'] ?? 'GET');
 $name = trim((string) ($_POST['customer_name'] ?? ''));
 $selectedBikeId = (int) ($_POST['bike_id'] ?? 0);
 
-$replacementBikes = array_values(array_filter(
-    all_bikes(true),
-    static fn (array $bike): bool => in_array(
-        (string) ($bike['usage_type'] ?? ''),
-        ['replacement', 'replacement_rental'],
-        true
-    )
-));
-
-usort($replacementBikes, static function (array $a, array $b): int {
+$bikes = all_bikes(true);
+usort($bikes, static function (array $a, array $b): int {
+    $categoryCompare = strnatcasecmp((string) ($a['category'] ?? ''), (string) ($b['category'] ?? ''));
+    if ($categoryCompare !== 0) {
+        return $categoryCompare;
+    }
     return strnatcasecmp((string) ($a['code'] ?? ''), (string) ($b['code'] ?? ''));
 });
+
+$categories = [];
+foreach ($bikes as $bike) {
+    $category = trim((string) ($bike['category'] ?? ''));
+    if ($category !== '' && !in_array($category, $categories, true)) {
+        $categories[] = $category;
+    }
+}
+natcasesort($categories);
+$categories = array_values($categories);
 
 $now = new DateTimeImmutable('now', new DateTimeZone('Europe/Brussels'));
 $provisionalEnd = $now->modify('+30 days');
@@ -29,13 +35,13 @@ if ($method === 'POST') {
     verify_csrf();
 
     if ($name === '' || $selectedBikeId < 1) {
-        flash('error', 'Vul de naam in en kies een vervangfiets.');
+        flash('error', 'Vul de naam in en kies een fiets.');
         redirect('quick-replacement.php');
     }
 
     $bike = find_bike($selectedBikeId);
-    if (!$bike || !in_array((string) ($bike['usage_type'] ?? ''), ['replacement', 'replacement_rental'], true)) {
-        flash('error', 'Deze fiets kan niet als vervangfiets worden geregistreerd.');
+    if (!$bike) {
+        flash('error', 'Deze fiets bestaat niet meer.');
         redirect('quick-replacement.php');
     }
 
@@ -71,7 +77,7 @@ if ($method === 'POST') {
             ':start_at' => $startAt,
             ':end_at' => $endAt,
             ':status' => 'picked_up',
-            ':notes' => 'Snelle vervangfiets via werkplaats. Voorlopige einddatum: ' . $provisionalEnd->format('d/m/Y H:i') . '.',
+            ':notes' => 'Snelle fietsregistratie via werkplaats. Voorlopige einddatum: ' . $provisionalEnd->format('d/m/Y H:i') . '.',
             ':created_by' => (int) current_user()['id'],
         ]);
         $reservationId = (int) db()->lastInsertId();
@@ -88,6 +94,8 @@ if ($method === 'POST') {
         audit('create', 'quick_replacement', $reservationId, [
             'bike_id' => $selectedBikeId,
             'customer_name' => $name,
+            'category' => (string) ($bike['category'] ?? ''),
+            'usage_type' => (string) ($bike['usage_type'] ?? ''),
             'start_at' => $startAt,
             'provisional_end_at' => $endAt,
             'total_price' => 0,
@@ -100,7 +108,7 @@ if ($method === 'POST') {
         if (db()->inTransaction()) {
             db()->rollBack();
         }
-        flash('error', 'De vervangfiets kon niet worden geregistreerd.');
+        flash('error', 'De fiets kon niet worden geregistreerd.');
         redirect('quick-replacement.php');
     }
 }
@@ -112,12 +120,12 @@ $availability = bike_availability(
 
 render_header('Snelle vervangfiets');
 ?>
-<section class="quick-replacement-shell">
+<section class="quick-replacement-shell" data-quick-replacement>
     <div class="card quick-replacement-card">
         <div class="quick-replacement-heading">
             <div>
                 <span class="quick-replacement-kicker">Werkplaats</span>
-                <h2>Vervangfiets meegeven</h2>
+                <h2>Snel een fiets meegeven</h2>
                 <p class="muted">Alleen naam en fiets. De fiets wordt meteen als afgehaald geregistreerd.</p>
             </div>
             <a class="button button-secondary" href="planning.php">Terug naar planning</a>
@@ -133,19 +141,33 @@ render_header('Snelle vervangfiets');
 
             <div class="field">
                 <div class="actions actions-between">
-                    <label>Kies vervangfiets *</label>
+                    <label>Kies fiets *</label>
                     <span class="help">Voorlopig geblokkeerd voor 30 dagen of tot je hem als teruggebracht markeert.</span>
                 </div>
 
-                <?php if (!$replacementBikes): ?>
-                    <div class="alert alert-warning">Er zijn nog geen fietsen ingesteld als vervangfiets.</div>
+                <div class="quick-category-filters" role="group" aria-label="Filter op soort fiets">
+                    <button class="quick-filter is-active" type="button" data-quick-filter="all" aria-pressed="true">Alles</button>
+                    <?php foreach ($categories as $category): ?>
+                        <button class="quick-filter" type="button" data-quick-filter="<?= e(mb_strtolower($category, 'UTF-8')) ?>" aria-pressed="false"><?= e($category) ?></button>
+                    <?php endforeach; ?>
+                </div>
+                <div class="quick-filter-summary" data-quick-filter-summary aria-live="polite"></div>
+
+                <?php if (!$bikes): ?>
+                    <div class="alert alert-warning">Er zijn nog geen fietsen toegevoegd.</div>
                 <?php else: ?>
                     <div class="quick-bike-grid">
-                        <?php foreach ($replacementBikes as $index => $bike):
+                        <?php foreach ($bikes as $index => $bike):
                             $state = $availability[(int) $bike['id']] ?? ['available' => false, 'reason' => 'Niet beschikbaar'];
                             $available = !empty($state['available']);
+                            $category = trim((string) ($bike['category'] ?? 'Andere')) ?: 'Andere';
                         ?>
-                            <label class="quick-bike-card <?= $available ? '' : 'quick-bike-card-disabled' ?>">
+                            <label
+                                class="quick-bike-card <?= $available ? '' : 'quick-bike-card-disabled' ?>"
+                                data-quick-bike-card
+                                data-category="<?= e(mb_strtolower($category, 'UTF-8')) ?>"
+                                data-available="<?= $available ? '1' : '0' ?>"
+                            >
                                 <input
                                     type="radio"
                                     name="bike_id"
@@ -162,9 +184,12 @@ render_header('Snelle vervangfiets');
                                     <?php endif; ?>
                                 </span>
                                 <span class="quick-bike-info">
-                                    <strong><?= e((string) $bike['code']) ?></strong>
+                                    <span class="quick-bike-topline">
+                                        <strong><?= e((string) $bike['code']) ?></strong>
+                                        <span class="quick-bike-category"><?= e($category) ?></span>
+                                    </span>
                                     <span><?= e((string) $bike['name']) ?></span>
-                                    <small><?= e((string) $bike['category']) ?></small>
+                                    <small><?= e(bike_usage_type_label((string) ($bike['usage_type'] ?? 'rental'))) ?></small>
                                     <span class="quick-bike-state <?= $available ? 'quick-bike-state-available' : 'quick-bike-state-unavailable' ?>">
                                         <?= $available ? 'Beschikbaar' : e((string) ($state['reason'] ?? 'Niet beschikbaar')) ?>
                                     </span>
@@ -177,7 +202,7 @@ render_header('Snelle vervangfiets');
             </div>
 
             <div class="quick-replacement-actions">
-                <button class="button quick-replacement-submit" type="submit" <?= !$replacementBikes ? 'disabled' : '' ?>>Vervangfiets registreren</button>
+                <button class="button quick-replacement-submit" type="submit" <?= !$bikes ? 'disabled' : '' ?>>Fiets registreren</button>
             </div>
         </form>
     </div>
