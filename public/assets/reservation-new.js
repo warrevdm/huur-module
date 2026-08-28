@@ -120,15 +120,26 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  const matchesUsageFilter = (usageType) => {
+    if (activeFilter === 'ALL') return true;
+    if (activeFilter === 'H') return usageType === 'rental' || usageType === 'replacement_rental';
+    if (activeFilter === 'V') return usageType === 'replacement' || usageType === 'replacement_rental';
+    if (activeFilter === 'T') return usageType === 'test';
+    return true;
+  };
+
   const applySearchAndFilter = () => {
     const needle = String(search?.value || '').trim().toLowerCase();
     for (const card of cards) {
+      const id = Number.parseInt(card.dataset.bikeId || '0', 10);
+      const option = optionById(id);
+      const usageType = String(option?.dataset?.bikeUsageType || '').trim();
       const haystack = [card.dataset.bikeCode, card.dataset.bikeName, card.dataset.bikeCategory]
         .filter(Boolean)
         .join(' ')
         .toLowerCase();
       const matchesSearch = !needle || haystack.includes(needle);
-      const matchesFilter = activeFilter === 'ALL' || card.dataset.bikeGroup === activeFilter;
+      const matchesFilter = matchesUsageFilter(usageType);
       card.hidden = !(matchesSearch && matchesFilter);
     }
   };
@@ -152,6 +163,7 @@ document.addEventListener('DOMContentLoaded', () => {
       activeFilter = button.dataset.rentalFilter || 'ALL';
       for (const candidate of filterButtons) {
         candidate.classList.toggle('is-active', candidate === button);
+        candidate.setAttribute('aria-pressed', candidate === button ? 'true' : 'false');
       }
       applySearchAndFilter();
     });
@@ -179,6 +191,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const value = Number(totalPrice.value || 0);
     totalPrice.setAttribute('aria-label', `Totaalprijs ${euro(value)}`);
   });
+
+  for (const button of filterButtons) {
+    button.setAttribute('aria-pressed', button.dataset.rentalFilter === 'ALL' ? 'true' : 'false');
+  }
 
   updatePeriodSummary();
   syncCardsFromOptions();
