@@ -36,12 +36,40 @@ function require_auth(): void
     }
 }
 
+function is_admin(): bool
+{
+    return (current_user()['role'] ?? '') === 'admin';
+}
+
 function require_admin(): void
 {
     require_auth();
-    if ((current_user()['role'] ?? '') !== 'admin') {
+    if (!is_admin()) {
         http_response_code(403);
         exit('Geen toegang.');
+    }
+}
+
+function can_use_quick_replacement(): bool
+{
+    $user = current_user();
+    if (!$user) {
+        return false;
+    }
+
+    if (($user['role'] ?? '') === 'admin') {
+        return true;
+    }
+
+    return strtolower(trim((string) ($user['email'] ?? ''))) === 'berten@aertsactionbike.be';
+}
+
+function require_quick_replacement(): void
+{
+    require_auth();
+    if (!can_use_quick_replacement()) {
+        http_response_code(403);
+        exit('Geen toegang tot Snelle vervangfiets.');
     }
 }
 
