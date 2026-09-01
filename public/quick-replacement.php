@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../app/bootstrap.php';
-require_auth();
+require_quick_replacement();
 
 $method = (string) ($_SERVER['REQUEST_METHOD'] ?? 'GET');
 $name = trim((string) ($_POST['customer_name'] ?? ''));
