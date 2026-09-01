@@ -37,6 +37,7 @@ if ($method === 'POST' && (string) ($_POST['action'] ?? '') === 'optimize_images
 
 if ($method === 'POST' && (string) ($_POST['action'] ?? '') === 'delete_bike') {
     verify_csrf();
+    require_admin();
 
     $bikeId = (int) ($_POST['id'] ?? 0);
     $bike = $bikeId > 0 ? find_bike($bikeId) : null;
@@ -374,12 +375,12 @@ render_header('Verhuurfietsen');
             </div>
         </form>
 
-        <?php if ($editBike): ?>
+        <?php if ($editBike && is_admin()): ?>
             <hr>
             <div class="stack">
                 <div>
                     <h3>Fiets verwijderen</h3>
-                    <p class="help">Alleen mogelijk wanneer deze fiets nog nooit aan een reservatie gekoppeld is. Heeft de fiets verhuurhistoriek, zet hem dan op Inactief.</p>
+                    <p class="help">Alleen mogelijk voor beheerders en wanneer deze fiets nog nooit aan een reservatie gekoppeld is. Heeft de fiets verhuurhistoriek, zet hem dan op Inactief.</p>
                 </div>
                 <form method="post" class="stack">
                     <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
