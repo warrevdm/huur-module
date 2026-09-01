@@ -14,6 +14,7 @@ function render_header(string $title, bool $showNav = true): void
     $eidBridgeStyleVersion = is_file(ROOT_PATH . '/public/assets/eid-bridge.css') ? (string) filemtime(ROOT_PATH . '/public/assets/eid-bridge.css') : '1';
     $reservationNewStyleVersion = is_file(ROOT_PATH . '/public/assets/reservation-new.css') ? (string) filemtime(ROOT_PATH . '/public/assets/reservation-new.css') : '1';
     $quickReplacementStyleVersion = is_file(ROOT_PATH . '/public/assets/quick-replacement.css') ? (string) filemtime(ROOT_PATH . '/public/assets/quick-replacement.css') : '1';
+    $bikesLayoutStyleVersion = is_file(ROOT_PATH . '/public/assets/bikes-layout.css') ? (string) filemtime(ROOT_PATH . '/public/assets/bikes-layout.css') : '1';
     ?>
     <!doctype html>
     <html lang="nl-BE">
@@ -29,6 +30,7 @@ function render_header(string $title, bool $showNav = true): void
         <link rel="stylesheet" href="assets/eid-bridge.css?v=<?= e($eidBridgeStyleVersion) ?>">
         <link rel="stylesheet" href="assets/reservation-new.css?v=<?= e($reservationNewStyleVersion) ?>">
         <link rel="stylesheet" href="assets/quick-replacement.css?v=<?= e($quickReplacementStyleVersion) ?>">
+        <link rel="stylesheet" href="assets/bikes-layout.css?v=<?= e($bikesLayoutStyleVersion) ?>">
     </head>
     <body>
     <?php if ($showNav && $user): ?>
