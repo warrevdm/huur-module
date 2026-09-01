@@ -164,7 +164,7 @@ if ($method === 'POST') {
 
 $bikes = all_bikes(true);
 $editBike = $editId > 0 ? find_bike($editId) : null;
-$categories = ['E-bike', 'Speedpedelec', 'Stadsfiets', 'Kinderfiets', 'Tandem', 'Racefiets', 'Gravelfiets', 'Andere'];
+$categories = ['E-bike', 'Speedpedelec', 'Stadsfiets', 'Bakfiets', 'Kinderfiets', 'Tandem', 'Racefiets', 'Gravelfiets', 'Andere'];
 $usageTypes = [
     'rental' => 'Huurfiets',
     'replacement' => 'Vervangfiets',
