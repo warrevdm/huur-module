@@ -35,6 +35,73 @@ if ($method === 'POST' && (string) ($_POST['action'] ?? '') === 'optimize_images
     redirect('bikes.php');
 }
 
+if ($method === 'POST' && (string) ($_POST['action'] ?? '') === 'delete_bike') {
+    verify_csrf();
+
+    $bikeId = (int) ($_POST['id'] ?? 0);
+    $bike = $bikeId > 0 ? find_bike($bikeId) : null;
+    if (!$bike) {
+        flash('error', 'Fiets niet gevonden.');
+        redirect('bikes.php');
+    }
+
+    if ((string) ($_POST['confirm_delete'] ?? '') !== '1') {
+        flash('error', 'Bevestig eerst dat je deze fiets definitief wilt verwijderen.');
+        redirect('bikes.php?edit=' . $bikeId);
+    }
+
+    $reservationStmt = db()->prepare('SELECT COUNT(*) FROM reservations WHERE bike_id = :bike_id');
+    $reservationStmt->execute([':bike_id' => $bikeId]);
+    $directReservationCount = (int) $reservationStmt->fetchColumn();
+
+    $reservationBikeStmt = db()->prepare('SELECT COUNT(*) FROM reservation_bikes WHERE bike_id = :bike_id');
+    $reservationBikeStmt->execute([':bike_id' => $bikeId]);
+    $linkedReservationCount = (int) $reservationBikeStmt->fetchColumn();
+
+    if (($directReservationCount + $linkedReservationCount) > 0) {
+        flash(
+            'error',
+            'Deze fiets heeft verhuurhistoriek en kan daarom niet definitief worden verwijderd. Zet de status op Inactief om hem uit de planning te halen.'
+        );
+        redirect('bikes.php?edit=' . $bikeId);
+    }
+
+    $storedPhoto = (string) ($bike['photo_stored_name'] ?? '');
+
+    try {
+        db()->beginTransaction();
+
+        $deleteStmt = db()->prepare('DELETE FROM bikes WHERE id = :id');
+        $deleteStmt->execute([':id' => $bikeId]);
+        if ($deleteStmt->rowCount() !== 1) {
+            throw new RuntimeException('Fiets kon niet worden verwijderd.');
+        }
+
+        audit('delete', 'bike', $bikeId, [
+            'code' => (string) ($bike['code'] ?? ''),
+            'name' => (string) ($bike['name'] ?? ''),
+            'category' => (string) ($bike['category'] ?? ''),
+            'frame_number' => (string) ($bike['frame_number'] ?? ''),
+            'had_photo' => $storedPhoto !== '',
+        ]);
+
+        db()->commit();
+    } catch (Throwable $e) {
+        if (db()->inTransaction()) {
+            db()->rollBack();
+        }
+        flash('error', 'De fiets kon niet worden verwijderd.');
+        redirect('bikes.php?edit=' . $bikeId);
+    }
+
+    if ($storedPhoto !== '') {
+        delete_bike_photo($storedPhoto);
+    }
+
+    flash('success', (string) $bike['code'] . ' — ' . (string) $bike['name'] . ' is definitief verwijderd.');
+    redirect('bikes.php');
+}
+
 if ($method === 'POST') {
     verify_csrf();
 
@@ -306,6 +373,26 @@ render_header('Verhuurfietsen');
                 <?php if ($editBike): ?><a class="button button-secondary" href="bikes.php">Annuleren</a><?php endif; ?>
             </div>
         </form>
+
+        <?php if ($editBike): ?>
+            <hr>
+            <div class="stack">
+                <div>
+                    <h3>Fiets verwijderen</h3>
+                    <p class="help">Alleen mogelijk wanneer deze fiets nog nooit aan een reservatie gekoppeld is. Heeft de fiets verhuurhistoriek, zet hem dan op Inactief.</p>
+                </div>
+                <form method="post" class="stack">
+                    <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
+                    <input type="hidden" name="action" value="delete_bike">
+                    <input type="hidden" name="id" value="<?= (int) $editBike['id'] ?>">
+                    <label class="actions remove-photo-option">
+                        <input class="checkbox-inline" name="confirm_delete" type="checkbox" value="1" required>
+                        Ik bevestig dat ik <?= e((string) $editBike['code']) ?> definitief wil verwijderen.
+                    </label>
+                    <button class="button button-danger" type="submit">Fiets definitief verwijderen</button>
+                </form>
+            </div>
+        <?php endif; ?>
     </aside>
 </section>
 <?php render_footer();
