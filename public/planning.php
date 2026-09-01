@@ -8,13 +8,38 @@ require_auth();
 $days = max(7, min(28, (int) ($_GET['days'] ?? 14)));
 $start = DateTimeImmutable::createFromFormat('!Y-m-d', (string) ($_GET['start'] ?? date('Y-m-d'))) ?: new DateTimeImmutable('today');
 $end = $start->modify("+{$days} days");
-$bikes = all_bikes(true);
+$allBikes = all_bikes(true);
+$selectedCategory = trim((string) ($_GET['category'] ?? ''));
+
+$categories = [];
+foreach ($allBikes as $bike) {
+    $category = trim((string) ($bike['category'] ?? ''));
+    if ($category !== '' && !in_array($category, $categories, true)) {
+        $categories[] = $category;
+    }
+}
+natcasesort($categories);
+$categories = array_values($categories);
+
+if ($selectedCategory !== '' && !in_array($selectedCategory, $categories, true)) {
+    $selectedCategory = '';
+}
+
+$bikes = $selectedCategory === ''
+    ? $allBikes
+    : array_values(array_filter(
+        $allBikes,
+        static fn (array $bike): bool => (string) ($bike['category'] ?? '') === $selectedCategory
+    ));
+
 $events = reservations_for_range($start, $end);
 $counts = reservation_counts();
 $byBike = [];
 foreach ($events as $event) {
     $byBike[(int) $event['bike_id']][] = $event;
 }
+
+$categoryParam = $selectedCategory !== '' ? '&category=' . rawurlencode($selectedCategory) : '';
 
 render_header('Verhuurplanning');
 ?>
@@ -27,17 +52,28 @@ render_header('Verhuurplanning');
 <section class="card mt-18">
     <div class="planning-toolbar">
         <div class="actions">
-            <a class="button button-secondary" href="planning.php?start=<?= e($start->modify("-{$days} days")->format('Y-m-d')) ?>&amp;days=<?= $days ?>">← Vorige</a>
-            <a class="button button-secondary" href="planning.php?days=<?= $days ?>">Vandaag</a>
-            <a class="button button-secondary" href="planning.php?start=<?= e($end->format('Y-m-d')) ?>&amp;days=<?= $days ?>">Volgende →</a>
+            <a class="button button-secondary" href="planning.php?start=<?= e($start->modify("-{$days} days")->format('Y-m-d')) ?>&amp;days=<?= $days ?><?= e($categoryParam) ?>">← Vorige</a>
+            <a class="button button-secondary" href="planning.php?days=<?= $days ?><?= e($categoryParam) ?>">Vandaag</a>
+            <a class="button button-secondary" href="planning.php?start=<?= e($end->format('Y-m-d')) ?>&amp;days=<?= $days ?><?= e($categoryParam) ?>">Volgende →</a>
         </div>
         <div class="actions">
-            <a href="planning.php?days=7">7 dagen</a>
-            <a href="planning.php?days=14">14 dagen</a>
-            <a href="planning.php?days=28">28 dagen</a>
+            <a href="planning.php?days=7<?= e($categoryParam) ?>">7 dagen</a>
+            <a href="planning.php?days=14<?= e($categoryParam) ?>">14 dagen</a>
+            <a href="planning.php?days=28<?= e($categoryParam) ?>">28 dagen</a>
             <a class="button" href="reservation-new.php">+ Nieuwe verhuur</a>
         </div>
     </div>
+
+    <?php if ($categories): ?>
+        <div class="planning-category-filter" aria-label="Filter planning op soort fiets">
+            <span class="legend-title">Soort fiets:</span>
+            <a class="button <?= $selectedCategory === '' ? '' : 'button-secondary' ?>" href="planning.php?start=<?= e($start->format('Y-m-d')) ?>&amp;days=<?= $days ?>">Alles</a>
+            <?php foreach ($categories as $category): ?>
+                <a class="button <?= $selectedCategory === $category ? '' : 'button-secondary' ?>" href="planning.php?start=<?= e($start->format('Y-m-d')) ?>&amp;days=<?= $days ?>&amp;category=<?= rawurlencode($category) ?>"><?= e($category) ?></a>
+            <?php endforeach; ?>
+            <span class="muted"><?= count($bikes) ?> van <?= count($allBikes) ?> fiets(en) zichtbaar</span>
+        </div>
+    <?php endif; ?>
 
     <div class="planning-legend" aria-label="Legende planning">
         <span class="legend-title">Reservatie:</span>
@@ -57,9 +93,11 @@ render_header('Verhuurplanning');
         <span class="legend-item"><i class="legend-swatch bike-inactive"></i>Inactief</span>
     </div>
 
-    <?php if (!$bikes): ?>
+    <?php if (!$allBikes): ?>
         <div class="alert alert-warning">Voeg eerst een fiets toe.</div>
         <a class="button" href="bikes.php">Fiets toevoegen</a>
+    <?php elseif (!$bikes): ?>
+        <div class="alert alert-warning">Geen fietsen gevonden voor deze categorie.</div>
     <?php else: ?>
         <div class="planning-wrap"><table class="planning">
             <thead><tr><th class="bike-cell">Fiets</th>
