@@ -76,10 +76,46 @@
     height: 24px;
 }
 
+.planning-category-filter {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 16px 0 10px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--line);
+}
+
+.planning-category-filter .button {
+    min-height: 36px;
+    padding: 6px 11px;
+    border-radius: 999px;
+    font-size: .82rem;
+    white-space: nowrap;
+}
+
+.planning-category-filter > .muted {
+    margin-left: auto;
+    font-size: .8rem;
+    white-space: nowrap;
+}
+
 @media (max-width: 800px) {
     .booking-status-icon {
         min-width: 26px;
         padding-inline: 4px;
         font-size: .68rem;
+    }
+
+    .planning-category-filter {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        padding-bottom: 10px;
+        scrollbar-width: thin;
+    }
+
+    .planning-category-filter .legend-title,
+    .planning-category-filter > .muted {
+        flex: 0 0 auto;
     }
 }
