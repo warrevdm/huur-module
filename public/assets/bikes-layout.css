@@ -1,3 +1,20 @@
+/* Fietsbeelden: toon de volledige fiets in plaats van beeldvullend te croppen. */
+.bike-photo-frame,
+.bike-current-photo {
+    background: #f5f8f5;
+}
+
+.bike-photo-frame img,
+.bike-current-photo img {
+    object-fit: contain;
+    object-position: center;
+    padding: 10px;
+}
+
+.bike-current-photo img {
+    padding: 14px;
+}
+
 @media (min-width: 1001px) {
     .bike-form-card {
         position: sticky;
