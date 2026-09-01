@@ -42,7 +42,9 @@ function render_header(string $title, bool $showNav = true): void
             <nav>
                 <a href="planning.php">Planning</a>
                 <a href="reservation-new.php">Nieuwe verhuur</a>
-                <a href="quick-replacement.php">Snelle vervangfiets</a>
+                <?php if (can_use_quick_replacement()): ?>
+                    <a href="quick-replacement.php">Snelle vervangfiets</a>
+                <?php endif; ?>
                 <a href="bikes.php">Fietsen</a>
                 <?php if (($user['role'] ?? '') === 'admin'): ?>
                     <a href="users.php">Gebruikers</a>
