@@ -15,4 +15,7 @@
 .DS_Store
 /storage/backups/
 /public/assets/bike-cache/
+/tools/eid-bridge/bin/
+/tools/eid-bridge/obj/
 /tools/eid-bridge/dist-x86/
+/tools/eid-bridge/dist-x64/
