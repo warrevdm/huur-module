@@ -8,8 +8,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const id = params.get('id');
   if (!id || !/^\d+$/.test(id)) return;
 
-  const activeBadge = document.querySelector('.badge.status-confirmed, .badge.status-picked_up');
-  if (!activeBadge) return;
+  const editableBadge = document.querySelector('.badge.status-reserved, .badge.status-confirmed, .badge.status-picked_up');
+  if (!editableBadge) return;
 
   const headerActions = document.querySelector('.card.col-8 .actions.actions-between > .actions');
   if (!headerActions || headerActions.querySelector('[data-edit-end-date]')) return;
