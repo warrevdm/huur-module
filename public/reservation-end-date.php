@@ -12,8 +12,8 @@ if (!$reservation) {
     exit('Verhuur niet gevonden.');
 }
 
-if (!in_array((string) $reservation['status'], ['confirmed', 'picked_up'], true)) {
-    flash('error', 'De einddatum kan alleen bij een actieve verhuring worden aangepast.');
+if (!in_array((string) $reservation['status'], ['reserved', 'confirmed', 'picked_up'], true)) {
+    flash('error', 'De einddatum kan alleen bij een gereserveerde of actieve verhuring worden aangepast.');
     redirect('reservation.php?id=' . $id);
 }
 
@@ -75,7 +75,7 @@ if ((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         $stmt = db()->prepare(
             'UPDATE reservations
              SET end_at = :end_at, updated_at = CURRENT_TIMESTAMP
-             WHERE id = :id AND status IN (\'confirmed\', \'picked_up\')'
+             WHERE id = :id AND status IN (\'reserved\', \'confirmed\', \'picked_up\')'
         );
         $stmt->execute([
             ':end_at' => $newEnd->format('Y-m-d H:i:s'),
