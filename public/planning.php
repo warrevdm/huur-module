@@ -249,8 +249,7 @@ render_header('Verhuurplanning');
                             }
                     ?>
                         <td colspan="<?= $span ?>">
-                            <a class="booking-block status-<?= e($active['status']) ?>" href="reservation.php?id=<?= (int) $active['id'] ?>" title="<?= e($active['customer_name']) ?> · <?= e((new DateTimeImmutable($active['start_at']))->format('d/m/Y H:i')) ?> → <?= e($activeEnd->format('d/m/Y H:i')) ?>">
-                                <span class="booking-customer-hover" aria-hidden="true"><?= e($active['customer_name']) ?></span>
+                            <a class="booking-block status-<?= e($active['status']) ?>" href="reservation.php?id=<?= (int) $active['id'] ?>" data-customer-name="<?= e($active['customer_name']) ?>" title="<?= e($active['customer_name']) ?> · <?= e((new DateTimeImmutable($active['start_at']))->format('d/m/Y H:i')) ?> → <?= e($activeEnd->format('d/m/Y H:i')) ?>">
                                 <span class="booking-title-row">
                                     <strong><?= e($active['customer_name']) ?></strong>
                                     <span class="booking-status-icons" aria-label="Contract- en betaalstatus">
