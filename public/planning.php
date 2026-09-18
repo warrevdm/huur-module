@@ -10,6 +10,9 @@ $start = DateTimeImmutable::createFromFormat('!Y-m-d', (string) ($_GET['start'] 
 $end = $start->modify("+{$days} days");
 $allBikes = all_bikes(true);
 $selectedCategory = trim((string) ($_GET['category'] ?? ''));
+$focus = (string) ($_GET['focus'] ?? '');
+$focus = in_array($focus, ['pickups', 'returns', 'active'], true) ? $focus : '';
+$today = date('Y-m-d');
 
 $categories = [];
 foreach ($allBikes as $bike) {
@@ -25,14 +28,78 @@ if ($selectedCategory !== '' && !in_array($selectedCategory, $categories, true))
     $selectedCategory = '';
 }
 
-$bikes = $selectedCategory === ''
+$focusReservationIds = [];
+$focusBikeIds = [];
+
+if ($focus !== '') {
+    $focusWhere = match ($focus) {
+        'pickups' => "date(start_at) = :today AND status IN ('reserved', 'confirmed')",
+        'returns' => "date(end_at) = :today AND status IN ('picked_up', 'confirmed')",
+        'active' => "status = 'picked_up'",
+    };
+
+    $focusStmt = db()->prepare(
+        "SELECT id, start_at, end_at
+         FROM reservations
+         WHERE {$focusWhere}
+         ORDER BY start_at, id"
+    );
+    $focusParams = $focus === 'active' ? [] : [':today' => $today];
+    $focusStmt->execute($focusParams);
+    $focusReservations = $focusStmt->fetchAll();
+
+    if ($focusReservations) {
+        $focusReservationIds = array_map(
+            static fn (array $reservation): int => (int) $reservation['id'],
+            $focusReservations
+        );
+
+        $focusStart = min(array_map(
+            static fn (array $reservation): string => substr((string) $reservation['start_at'], 0, 10),
+            $focusReservations
+        ));
+        $focusEnd = max(array_map(
+            static fn (array $reservation): string => substr((string) $reservation['end_at'], 0, 10),
+            $focusReservations
+        ));
+
+        $start = DateTimeImmutable::createFromFormat('!Y-m-d', $focusStart) ?: $start;
+        $lastVisibleDay = DateTimeImmutable::createFromFormat('!Y-m-d', $focusEnd) ?: $start;
+        $days = max(1, (int) $start->diff($lastVisibleDay)->days + 1);
+        $end = $start->modify("+{$days} days");
+
+        $placeholders = implode(',', array_fill(0, count($focusReservationIds), '?'));
+        $bikeStmt = db()->prepare(
+            "SELECT DISTINCT bike_id
+             FROM reservation_bikes
+             WHERE reservation_id IN ({$placeholders})"
+        );
+        $bikeStmt->execute($focusReservationIds);
+        $focusBikeIds = array_map('intval', $bikeStmt->fetchAll(PDO::FETCH_COLUMN));
+    }
+}
+
+$candidateBikes = $focus === ''
     ? $allBikes
     : array_values(array_filter(
         $allBikes,
+        static fn (array $bike): bool => in_array((int) $bike['id'], $focusBikeIds, true)
+    ));
+
+$bikes = $selectedCategory === ''
+    ? $candidateBikes
+    : array_values(array_filter(
+        $candidateBikes,
         static fn (array $bike): bool => (string) ($bike['category'] ?? '') === $selectedCategory
     ));
 
 $events = reservations_for_range($start, $end);
+if ($focus !== '') {
+    $events = array_values(array_filter(
+        $events,
+        static fn (array $event): bool => in_array((int) $event['id'], $focusReservationIds, true)
+    ));
+}
 $counts = reservation_counts();
 $byBike = [];
 foreach ($events as $event) {
@@ -40,21 +107,44 @@ foreach ($events as $event) {
 }
 
 $categoryParam = $selectedCategory !== '' ? '&category=' . rawurlencode($selectedCategory) : '';
+$focusParam = $focus !== '' ? '&focus=' . rawurlencode($focus) : '';
+$focusLabels = [
+    'pickups' => 'Afhalingen vandaag',
+    'returns' => 'Retours vandaag',
+    'active' => 'Verhuren onderweg',
+];
 
 render_header('Verhuurplanning');
 ?>
-<section class="grid">
-    <div class="card col-4"><span class="stat"><?= (int) ($counts['pickups'] ?? 0) ?></span><span class="muted">afhalingen vandaag</span></div>
-    <div class="card col-4"><span class="stat"><?= (int) ($counts['returns'] ?? 0) ?></span><span class="muted">retours vandaag</span></div>
-    <div class="card col-4"><span class="stat"><?= (int) ($counts['active'] ?? 0) ?></span><span class="muted">verhuren onderweg</span></div>
+<section class="grid planning-stats" aria-label="Snelfilters planning">
+    <a class="card col-4 planning-stat-card <?= $focus === 'pickups' ? 'is-active' : '' ?>" href="planning.php?focus=pickups<?= e($categoryParam) ?>">
+        <span class="stat"><?= (int) ($counts['pickups'] ?? 0) ?></span>
+        <span class="muted">afhalingen vandaag</span>
+        <span class="planning-stat-action">Toon fietsen →</span>
+    </a>
+    <a class="card col-4 planning-stat-card <?= $focus === 'returns' ? 'is-active' : '' ?>" href="planning.php?focus=returns<?= e($categoryParam) ?>">
+        <span class="stat"><?= (int) ($counts['returns'] ?? 0) ?></span>
+        <span class="muted">retours vandaag</span>
+        <span class="planning-stat-action">Toon fietsen →</span>
+    </a>
+    <a class="card col-4 planning-stat-card <?= $focus === 'active' ? 'is-active' : '' ?>" href="planning.php?focus=active<?= e($categoryParam) ?>">
+        <span class="stat"><?= (int) ($counts['active'] ?? 0) ?></span>
+        <span class="muted">verhuren onderweg</span>
+        <span class="planning-stat-action">Toon fietsen →</span>
+    </a>
 </section>
 
 <section class="card mt-18">
     <div class="planning-toolbar">
         <div class="actions">
-            <a class="button button-secondary" href="planning.php?start=<?= e($start->modify("-{$days} days")->format('Y-m-d')) ?>&amp;days=<?= $days ?><?= e($categoryParam) ?>">← Vorige</a>
-            <a class="button button-secondary" href="planning.php?days=<?= $days ?><?= e($categoryParam) ?>">Vandaag</a>
-            <a class="button button-secondary" href="planning.php?start=<?= e($end->format('Y-m-d')) ?>&amp;days=<?= $days ?><?= e($categoryParam) ?>">Volgende →</a>
+            <?php if ($focus !== ''): ?>
+                <a class="button button-secondary" href="planning.php?days=14<?= e($categoryParam) ?>">← Volledige planning</a>
+                <span class="planning-focus-label"><?= e($focusLabels[$focus]) ?> · volledige huurperiode</span>
+            <?php else: ?>
+                <a class="button button-secondary" href="planning.php?start=<?= e($start->modify("-{$days} days")->format('Y-m-d')) ?>&amp;days=<?= $days ?><?= e($categoryParam) ?>">← Vorige</a>
+                <a class="button button-secondary" href="planning.php?days=<?= $days ?><?= e($categoryParam) ?>">Vandaag</a>
+                <a class="button button-secondary" href="planning.php?start=<?= e($end->format('Y-m-d')) ?>&amp;days=<?= $days ?><?= e($categoryParam) ?>">Volgende →</a>
+            <?php endif; ?>
         </div>
         <div class="actions">
             <a href="planning.php?days=7<?= e($categoryParam) ?>">7 dagen</a>
@@ -67,9 +157,9 @@ render_header('Verhuurplanning');
     <?php if ($categories): ?>
         <div class="planning-category-filter" aria-label="Filter planning op soort fiets">
             <span class="legend-title">Soort fiets:</span>
-            <a class="button <?= $selectedCategory === '' ? '' : 'button-secondary' ?>" href="planning.php?start=<?= e($start->format('Y-m-d')) ?>&amp;days=<?= $days ?>">Alles</a>
+            <a class="button <?= $selectedCategory === '' ? '' : 'button-secondary' ?>" href="planning.php?start=<?= e($start->format('Y-m-d')) ?>&amp;days=<?= $days ?><?= e($focusParam) ?>">Alles</a>
             <?php foreach ($categories as $category): ?>
-                <a class="button <?= $selectedCategory === $category ? '' : 'button-secondary' ?>" href="planning.php?start=<?= e($start->format('Y-m-d')) ?>&amp;days=<?= $days ?>&amp;category=<?= rawurlencode($category) ?>"><?= e($category) ?></a>
+                <a class="button <?= $selectedCategory === $category ? '' : 'button-secondary' ?>" href="planning.php?start=<?= e($start->format('Y-m-d')) ?>&amp;days=<?= $days ?>&amp;category=<?= rawurlencode($category) ?><?= e($focusParam) ?>"><?= e($category) ?></a>
             <?php endforeach; ?>
             <span class="muted"><?= count($bikes) ?> van <?= count($allBikes) ?> fiets(en) zichtbaar</span>
         </div>
@@ -97,7 +187,7 @@ render_header('Verhuurplanning');
         <div class="alert alert-warning">Voeg eerst een fiets toe.</div>
         <a class="button" href="bikes.php">Fiets toevoegen</a>
     <?php elseif (!$bikes): ?>
-        <div class="alert alert-warning">Geen fietsen gevonden voor deze categorie.</div>
+        <div class="alert alert-warning"><?= $focus !== '' ? 'Geen fietsen gevonden voor ' . e(strtolower($focusLabels[$focus])) . '.' : 'Geen fietsen gevonden voor deze categorie.' ?></div>
     <?php else: ?>
         <div class="planning-wrap"><table class="planning">
             <thead><tr><th class="bike-cell">Fiets</th>
@@ -159,7 +249,8 @@ render_header('Verhuurplanning');
                             }
                     ?>
                         <td colspan="<?= $span ?>">
-                            <a class="booking-block status-<?= e($active['status']) ?>" href="reservation.php?id=<?= (int) $active['id'] ?>">
+                            <a class="booking-block status-<?= e($active['status']) ?>" href="reservation.php?id=<?= (int) $active['id'] ?>" title="<?= e($active['customer_name']) ?> · <?= e((new DateTimeImmutable($active['start_at']))->format('d/m/Y H:i')) ?> → <?= e($activeEnd->format('d/m/Y H:i')) ?>">
+                                <span class="booking-customer-hover" aria-hidden="true"><?= e($active['customer_name']) ?></span>
                                 <span class="booking-title-row">
                                     <strong><?= e($active['customer_name']) ?></strong>
                                     <span class="booking-status-icons" aria-label="Contract- en betaalstatus">
