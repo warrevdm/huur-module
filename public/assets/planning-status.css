@@ -168,32 +168,43 @@
 
 .booking-customer-hover {
     position: absolute;
-    top: 6px;
-    left: 6px;
-    right: 6px;
-    z-index: 6;
+    left: 8px;
+    top: 8px;
+    z-index: 20;
     display: block !important;
-    padding: 7px 9px;
-    border-radius: 7px;
-    background: rgba(21, 32, 25, .94);
+    width: max-content;
+    max-width: min(360px, calc(100vw - 48px));
+    padding: 9px 11px;
+    border-radius: 8px;
+    background: rgba(21, 32, 25, .97);
     color: #fff;
-    font-size: .82rem;
+    font-size: .9rem;
     font-weight: 850;
-    line-height: 1.2;
+    line-height: 1.25;
     text-align: left;
     opacity: 0;
-    transform: translateY(-4px);
+    transform: translateY(-6px);
     pointer-events: none;
     transition: opacity .14s ease, transform .14s ease;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    overflow-wrap: anywhere;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, .22);
 }
 
 .booking-block:hover .booking-customer-hover,
 .booking-block:focus-visible .booking-customer-hover {
     opacity: 1;
     transform: translateY(0);
+}
+
+.planning td {
+    overflow: visible;
+}
+
+.booking-block {
+    overflow: visible;
 }
 
 @media (max-width: 800px) {
