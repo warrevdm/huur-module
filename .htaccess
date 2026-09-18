@@ -1,0 +1,14 @@
+RewriteEngine On
+
+# Blokkeer private projectmappen binnen de publieke Combell-map.
+RewriteRule ^(?:app|bin|database|docs|storage|tools|vendor|\.git|\.github)(?:/|$) - [F,L,NC]
+
+# Blokkeer gevoelige rootbestanden.
+RewriteRule ^(?:\.env(?:\..*)?|composer\.(?:json|lock)|README\.md|\.gitignore)$ - [F,L,NC]
+
+# De applicatie gebruikt root-routes op Combell. Oude directe /public/*.php-links gaan naar de root-route.
+RewriteRule ^public/?$ ./ [R=302,L]
+RewriteRule ^public/([A-Za-z0-9_-]+\.php)$ $1 [R=302,L,NE]
+
+# Assets blijven fysiek onder public/assets staan, maar zijn aan de root bereikbaar als /assets/...
+RewriteRule ^assets/(.*)$ public/assets/$1 [L]
