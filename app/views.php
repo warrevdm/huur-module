@@ -74,6 +74,7 @@ function render_footer(): void
     $reservationNewVersion = is_file(ROOT_PATH . '/public/assets/reservation-new.js') ? (string) filemtime(ROOT_PATH . '/public/assets/reservation-new.js') : '1';
     $quickReplacementVersion = is_file(ROOT_PATH . '/public/assets/quick-replacement.js') ? (string) filemtime(ROOT_PATH . '/public/assets/quick-replacement.js') : '1';
     $reservationEndDateVersion = is_file(ROOT_PATH . '/public/assets/reservation-end-date.js') ? (string) filemtime(ROOT_PATH . '/public/assets/reservation-end-date.js') : '1';
+    $planningHoverVersion = is_file(ROOT_PATH . '/public/assets/planning-hover.js') ? (string) filemtime(ROOT_PATH . '/public/assets/planning-hover.js') : '1';
     ?>
     </main>
     <script src="assets/app.js?v=<?= e($appVersion) ?>" defer></script>
@@ -83,6 +84,7 @@ function render_footer(): void
     <script src="assets/reservation-new.js?v=<?= e($reservationNewVersion) ?>" defer></script>
     <script src="assets/quick-replacement.js?v=<?= e($quickReplacementVersion) ?>" defer></script>
     <script src="assets/reservation-end-date.js?v=<?= e($reservationEndDateVersion) ?>" defer></script>
+    <script src="assets/planning-hover.js?v=<?= e($planningHoverVersion) ?>" defer></script>
     </body>
     </html>
     <?php
