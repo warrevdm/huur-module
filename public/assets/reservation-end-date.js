@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!path.endsWith('/reservation.php') && !path.endsWith('reservation.php')) return;
 
   if (document.querySelector('[data-finance-readonly="1"]')) return;
+  if (document.querySelector('.booking-kind-replacement')) return;
 
   const params = new URLSearchParams(window.location.search);
   const id = params.get('id');
