@@ -105,7 +105,7 @@ if ($method === 'POST') {
             'INSERT INTO reservations
              (bike_id,customer_id,identity_document_id,start_at,end_at,status,rental_kind,total_price,notes,created_by,
               eid_physical_checked,eid_photo_match,eid_checked_by,eid_checked_at)
-             VALUES (:bike,:customer,:document,:start,:end,:status,'rental',:price,:notes,:user,
+             VALUES (:bike,:customer,:document,:start,:end,:status,:rental_kind,:price,:notes,:user,
                      :eid_physical,:eid_photo,:eid_user,:eid_at)'
         );
         $stmt->execute([
@@ -115,6 +115,7 @@ if ($method === 'POST') {
             ':start' => $startAt->format('Y-m-d H:i:s'),
             ':end' => $endAt->format('Y-m-d H:i:s'),
             ':status' => ($_POST['status'] ?? 'reserved') === 'confirmed' ? 'confirmed' : 'reserved',
+            ':rental_kind' => 'rental',
             ':price' => $totalPrice,
             ':notes' => trim((string) ($_POST['notes'] ?? '')) ?: null,
             ':user' => (int) current_user()['id'],
