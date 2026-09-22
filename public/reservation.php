@@ -160,6 +160,8 @@ $reservation = find_reservation($id) ?? $reservation;
 $contract = find_contract_by_reservation($id);
 $payments = reservation_payments($id);
 $paymentSummary = reservation_payment_summary($id, (float) $reservation['total_price']);
+$rentalKind = (string) ($reservation['rental_kind'] ?? 'rental');
+$isReplacement = $rentalKind === 'replacement';
 
 render_header('Verhuur #' . $id);
 ?>
@@ -171,7 +173,13 @@ render_header('Verhuur #' . $id);
                 <p class="muted"><?= count($reservation['bikes']) ?> fiets(en) in dit dossier</p>
             </div>
             <div class="actions">
-                <a class="button button-secondary" href="#betalingen">Betaling registreren</a>
+                <?php if ($isReplacement): ?>
+                    <span class="booking-kind booking-kind-replacement">↺ Vervangfiets</span>
+                    <span class="badge booking-payment-not-required">€0 · geen huurbetaling</span>
+                <?php else: ?>
+                    <span class="booking-kind booking-kind-rental">€ Huurfiets</span>
+                    <a class="button button-secondary" href="#betalingen">Betaling registreren</a>
+                <?php endif; ?>
                 <span class="badge status-<?= e((string) $reservation['status']) ?>"><?= e(status_label((string) $reservation['status'])) ?></span>
             </div>
         </div>
@@ -200,7 +208,8 @@ render_header('Verhuur #' . $id);
             <dt>Telefoon</dt><dd><?= e((string) ($reservation['customer_phone'] ?: '—')) ?></dd>
             <dt>E-mail</dt><dd><?= e((string) ($reservation['customer_email'] ?: '—')) ?></dd>
             <dt>Adres</dt><dd><?= e((string) ($reservation['customer_address'] ?: '—')) ?></dd>
-            <dt>Totaalprijs</dt><dd>€ <?= number_format((float) $reservation['total_price'], 2, ',', '.') ?></dd>
+            <dt>Type</dt><dd><?= $isReplacement ? '↺ Vervangfiets · geen huurbetaling' : '€ Huurfiets · betaling verwacht' ?></dd>
+            <dt>Totaalprijs</dt><dd><?= $isReplacement ? 'Niet van toepassing' : '€ ' . number_format((float) $reservation['total_price'], 2, ',', '.') ?></dd>
             <dt>Notities</dt><dd><?= nl2br(e((string) ($reservation['notes'] ?: '—'))) ?></dd>
         </dl>
     </div>
@@ -264,6 +273,7 @@ render_header('Verhuur #' . $id);
         <?php endif; ?>
     </aside>
 
+    <?php if (!$isReplacement): ?>
     <div class="card col-12 payment-card" id="betalingen">
         <div class="actions actions-between">
             <div>
@@ -345,5 +355,6 @@ render_header('Verhuur #' . $id);
             <a class="button button-secondary" href="planning.php?start=<?= e((new DateTimeImmutable((string) $reservation['start_at']))->format('Y-m-d')) ?>">Toon in planning</a>
         </form>
     </div>
+    <?php endif; ?>
 </section>
 <?php render_footer();
