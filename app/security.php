@@ -24,13 +24,51 @@ function verify_csrf(): void
     }
 }
 
+function central_auth_enabled(): bool
+{
+    return function_exists('authCurrentUser');
+}
+
 function current_user(): ?array
 {
+    if (central_auth_enabled()) {
+        $portalUser = authCurrentUser();
+        if (!is_array($portalUser) || empty($portalUser['email'])) {
+            return null;
+        }
+
+        $stmt = db()->prepare(
+            'SELECT id, name, email, role, active
+             FROM users
+             WHERE lower(email) = lower(:email)
+             LIMIT 1'
+        );
+        $stmt->execute([':email' => (string) $portalUser['email']]);
+        $localUser = $stmt->fetch();
+
+        return $localUser && (int) $localUser['active'] === 1 ? $localUser : null;
+    }
+
     return $_SESSION['user'] ?? null;
 }
 
 function require_auth(): void
 {
+    if (central_auth_enabled()) {
+        $portalUser = authCurrentUser();
+        if ($portalUser === null) {
+            $next = (string) ($_SERVER['REQUEST_URI'] ?? '/huur-module/');
+            redirect('/home/login.php?next=' . rawurlencode($next));
+        }
+
+        if (current_user() === null) {
+            http_response_code(403);
+            exit('Je account heeft geen toegang tot de verhuurmodule. Vraag een beheerder om hetzelfde e-mailadres aan je verhuurprofiel te koppelen.');
+        }
+
+        return;
+    }
+
     if (current_user() === null) {
         redirect('index.php?route=login');
     }
@@ -100,6 +138,10 @@ function require_quick_replacement(): void
 
 function login_user(array $user): void
 {
+    if (central_auth_enabled()) {
+        return;
+    }
+
     session_regenerate_id(true);
     $_SESSION['user'] = [
         'id' => (int) $user['id'],
@@ -111,6 +153,11 @@ function login_user(array $user): void
 
 function logout_user(): void
 {
+    if (central_auth_enabled() && function_exists('authLogout')) {
+        authLogout();
+        return;
+    }
+
     $_SESSION = [];
     if (ini_get('session.use_cookies')) {
         $params = session_get_cookie_params();
