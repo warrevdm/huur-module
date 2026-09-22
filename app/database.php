@@ -28,5 +28,40 @@ function db(): PDO
     $pdo->exec('PRAGMA foreign_keys = ON');
     $pdo->exec('PRAGMA busy_timeout = 5000');
 
+    ensure_reservation_kind_schema($pdo);
+
     return $pdo;
+}
+
+
+function ensure_reservation_kind_schema(PDO $pdo): void
+{
+    $tableExists = (bool) $pdo->query(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'reservations' LIMIT 1"
+    )->fetchColumn();
+
+    if (!$tableExists) {
+        return;
+    }
+
+    $columns = [];
+    foreach ($pdo->query('PRAGMA table_info(reservations)')->fetchAll() as $column) {
+        $columns[(string) $column['name']] = true;
+    }
+
+    if (!isset($columns['rental_kind'])) {
+        $pdo->exec(
+            "ALTER TABLE reservations
+             ADD COLUMN rental_kind TEXT NOT NULL DEFAULT 'rental'
+             CHECK(rental_kind IN ('rental', 'replacement'))"
+        );
+    }
+
+    $pdo->exec('CREATE INDEX IF NOT EXISTS idx_reservations_rental_kind ON reservations(rental_kind)');
+    $pdo->exec(
+        "UPDATE reservations
+         SET rental_kind = 'replacement'
+         WHERE rental_kind = 'rental'
+           AND notes LIKE 'Snelle fietsregistratie via werkplaats.%'"
+    );
 }
