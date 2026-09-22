@@ -15,6 +15,7 @@ function render_header(string $title, bool $showNav = true): void
     $reservationNewStyleVersion = is_file(ROOT_PATH . '/public/assets/reservation-new.css') ? (string) filemtime(ROOT_PATH . '/public/assets/reservation-new.css') : '1';
     $quickReplacementStyleVersion = is_file(ROOT_PATH . '/public/assets/quick-replacement.css') ? (string) filemtime(ROOT_PATH . '/public/assets/quick-replacement.css') : '1';
     $bikesLayoutStyleVersion = is_file(ROOT_PATH . '/public/assets/bikes-layout.css') ? (string) filemtime(ROOT_PATH . '/public/assets/bikes-layout.css') : '1';
+    $cashbookStyleVersion = is_file(ROOT_PATH . '/public/assets/cashbook.css') ? (string) filemtime(ROOT_PATH . '/public/assets/cashbook.css') : '1';
     ?>
     <!doctype html>
     <html lang="nl-BE">
@@ -31,21 +32,27 @@ function render_header(string $title, bool $showNav = true): void
         <link rel="stylesheet" href="assets/reservation-new.css?v=<?= e($reservationNewStyleVersion) ?>">
         <link rel="stylesheet" href="assets/quick-replacement.css?v=<?= e($quickReplacementStyleVersion) ?>">
         <link rel="stylesheet" href="assets/bikes-layout.css?v=<?= e($bikesLayoutStyleVersion) ?>">
+        <link rel="stylesheet" href="assets/cashbook.css?v=<?= e($cashbookStyleVersion) ?>">
     </head>
     <body>
     <?php if ($showNav && $user): ?>
         <header class="topbar">
-            <a class="brand" href="planning.php" aria-label="<?= e($appName) ?>">
+            <a class="brand" href="<?= e(user_home_page()) ?>" aria-label="<?= e($appName) ?>">
                 <img src="assets/aerts-action-bike-logo.svg" alt="Aerts Action Bike">
                 <span class="sr-only"><?= e($appName) ?></span>
             </a>
             <nav>
-                <a href="planning.php">Planning</a>
-                <a href="reservation-new.php">Nieuwe verhuur</a>
-                <?php if (can_use_quick_replacement()): ?>
-                    <a href="quick-replacement.php">Snelle vervangfiets</a>
+                <?php if (!is_finance()): ?>
+                    <a href="planning.php">Planning</a>
+                    <a href="reservation-new.php">Nieuwe verhuur</a>
+                    <?php if (can_use_quick_replacement()): ?>
+                        <a href="quick-replacement.php">Snelle vervangfiets</a>
+                    <?php endif; ?>
+                    <a href="bikes.php">Fietsen</a>
                 <?php endif; ?>
-                <a href="bikes.php">Fietsen</a>
+                <?php if (can_view_cashbook()): ?>
+                    <a href="cashbook.php">Kasboek</a>
+                <?php endif; ?>
                 <?php if (($user['role'] ?? '') === 'admin'): ?>
                     <a href="users.php">Gebruikers</a>
                 <?php endif; ?>
