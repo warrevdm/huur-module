@@ -193,3 +193,73 @@
         grid-column: 1 / -1;
     }
 }
+
+
+.booking-block.booking-type-rental {
+    box-shadow: inset 5px 0 0 #2563eb;
+}
+
+.booking-block.booking-type-replacement {
+    box-shadow: inset 5px 0 0 #60bb46;
+}
+
+.booking-kind-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 5px;
+}
+
+.booking-kind {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    min-width: 24px;
+    min-height: 22px;
+    padding: 3px 7px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    font-size: .72rem;
+    font-weight: 900;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.booking-kind-rental {
+    border-color: #93c5fd;
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.booking-kind-replacement {
+    border-color: #a7d89c;
+    background: #e5f6df;
+    color: #245f21;
+}
+
+.booking-no-payment {
+    color: #4f6251;
+    font-size: .68rem;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.booking-payment-not-required {
+    background: #eef3ee;
+    color: #3e5a41;
+}
+
+.planning-legend .booking-kind {
+    min-width: 30px;
+    height: 24px;
+    padding: 2px 6px;
+    font-style: normal;
+}
+
+@media (max-width: 900px) {
+    .booking-no-payment {
+        display: none;
+    }
+}
