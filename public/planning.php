@@ -170,6 +170,9 @@ render_header('Verhuurplanning');
         <?php foreach (['reserved', 'confirmed', 'picked_up', 'returned'] as $status): ?>
             <span class="legend-item"><i class="legend-swatch status-<?= e($status) ?>"></i><?= e(status_label($status)) ?></span>
         <?php endforeach; ?>
+        <span class="legend-title">Type:</span>
+        <span class="legend-item"><i class="booking-kind booking-kind-rental">€</i>Huurfiets · betaling</span>
+        <span class="legend-item"><i class="booking-kind booking-kind-replacement">↺</i>Vervangfiets · geen huurbetaling</span>
         <span class="legend-title">Dossier:</span>
         <span class="legend-item"><i class="booking-status-icon booking-contract-signed">✍✓</i>Contract ondertekend</span>
         <span class="legend-item"><i class="booking-status-icon booking-contract-open">✍!</i>Nog niet ondertekend</span>
@@ -228,9 +231,17 @@ render_header('Verhuurplanning');
                             }
 
                             $contractSigned = !empty($active['contract_signed_at']);
+                            $rentalKind = (string) ($active['rental_kind'] ?? 'rental');
+                            $isReplacement = $rentalKind === 'replacement';
+                            $kindLabel = $isReplacement ? 'Vervang' : 'Huur';
+                            $kindIcon = $isReplacement ? '↺' : '€';
                             $totalPrice = round((float) ($active['total_price'] ?? 0), 2);
                             $paidAmount = round((float) ($active['paid_amount'] ?? 0), 2);
-                            if ($totalPrice <= 0) {
+                            if ($isReplacement) {
+                                $paymentClass = 'booking-payment-not-required';
+                                $paymentIcon = '€0';
+                                $paymentTitle = 'Geen huurbetaling verwacht voor vervangfiets';
+                            } elseif ($totalPrice <= 0) {
                                 $paymentClass = 'booking-payment-unpriced';
                                 $paymentIcon = '€—';
                                 $paymentTitle = 'Totaalprijs nog niet ingesteld';
@@ -249,7 +260,11 @@ render_header('Verhuurplanning');
                             }
                     ?>
                         <td colspan="<?= $span ?>">
-                            <a class="booking-block status-<?= e($active['status']) ?>" href="reservation.php?id=<?= (int) $active['id'] ?>" data-customer-name="<?= e($active['customer_name']) ?>" title="<?= e($active['customer_name']) ?> · <?= e((new DateTimeImmutable($active['start_at']))->format('d/m/Y H:i')) ?> → <?= e($activeEnd->format('d/m/Y H:i')) ?>">
+                            <a class="booking-block booking-type-<?= $isReplacement ? 'replacement' : 'rental' ?> status-<?= e($active['status']) ?>" href="reservation.php?id=<?= (int) $active['id'] ?>" data-customer-name="<?= e($active['customer_name']) ?>" title="<?= e($active['customer_name']) ?> · <?= e($kindLabel) ?> · <?= e((new DateTimeImmutable($active['start_at']))->format('d/m/Y H:i')) ?> → <?= e($activeEnd->format('d/m/Y H:i')) ?>">
+                                <span class="booking-kind-row">
+                                    <span class="booking-kind booking-kind-<?= $isReplacement ? 'replacement' : 'rental' ?>"><span aria-hidden="true"><?= e($kindIcon) ?></span> <?= e($kindLabel) ?></span>
+                                    <?php if ($isReplacement): ?><span class="booking-no-payment">geen huurbetaling</span><?php endif; ?>
+                                </span>
                                 <span class="booking-title-row">
                                     <strong><?= e($active['customer_name']) ?></strong>
                                     <span class="booking-status-icons" aria-label="Contract- en betaalstatus">
