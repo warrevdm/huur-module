@@ -9,7 +9,7 @@ $method = (string) ($_SERVER['REQUEST_METHOD'] ?? 'GET');
 
 if ($route === 'login') {
     if (current_user()) {
-        redirect('index.php?route=planning');
+        redirect(user_home_page());
     }
 
     if ($method === 'POST') {
@@ -33,7 +33,7 @@ if ($route === 'login') {
             clear_login_failures($email);
             login_user($user);
             audit('login', 'user', (int) $user['id']);
-            redirect('index.php?route=planning');
+            redirect(user_home_page());
         }
 
         record_login_failure($email);
