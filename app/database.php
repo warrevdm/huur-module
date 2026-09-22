@@ -30,6 +30,7 @@ function db(): PDO
 
     ensure_user_role_schema($pdo);
     ensure_reservation_kind_schema($pdo);
+    ensure_replacement_management_schema($pdo);
 
     return $pdo;
 }
@@ -118,5 +119,35 @@ function ensure_user_role_schema(PDO $pdo): void
     $violations = $pdo->query('PRAGMA foreign_key_check')->fetchAll();
     if ($violations) {
         throw new RuntimeException('Gebruikersrolmigratie veroorzaakte een foreign-keyfout.');
+    }
+}
+
+
+function ensure_replacement_management_schema(PDO $pdo): void
+{
+    $tableExists = (bool) $pdo->query(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'reservations' LIMIT 1"
+    )->fetchColumn();
+
+    if (!$tableExists) {
+        return;
+    }
+
+    $columns = [];
+    foreach ($pdo->query('PRAGMA table_info(reservations)')->fetchAll() as $column) {
+        $columns[(string) $column['name']] = true;
+    }
+
+    $migrations = [
+        'replacement_cost_note' => 'ALTER TABLE reservations ADD COLUMN replacement_cost_note TEXT',
+        'cancelled_reason' => 'ALTER TABLE reservations ADD COLUMN cancelled_reason TEXT',
+        'cancelled_by' => 'ALTER TABLE reservations ADD COLUMN cancelled_by INTEGER REFERENCES users(id)',
+        'cancelled_at' => 'ALTER TABLE reservations ADD COLUMN cancelled_at TEXT',
+    ];
+
+    foreach ($migrations as $column => $sql) {
+        if (!isset($columns[$column])) {
+            $pdo->exec($sql);
+        }
     }
 }
