@@ -8,6 +8,14 @@ $route = (string) ($_GET['route'] ?? 'planning');
 $method = (string) ($_SERVER['REQUEST_METHOD'] ?? 'GET');
 
 if ($route === 'login') {
+    if (central_auth_enabled()) {
+        if (current_user()) {
+            redirect(user_home_page());
+        }
+
+        redirect('/home/login.php?next=' . rawurlencode('/huur-module/'));
+    }
+
     if (current_user()) {
         redirect(user_home_page());
     }
@@ -63,8 +71,9 @@ if ($route === 'logout' && $method === 'POST') {
     require_auth();
     verify_csrf();
     audit('logout', 'user', (int) current_user()['id']);
+    $useCentralAuth = central_auth_enabled();
     logout_user();
-    redirect('index.php?route=login');
+    redirect($useCentralAuth ? '/home/login.php' : 'index.php?route=login');
 }
 
 require_auth();
