@@ -20,6 +20,11 @@ require_once __DIR__ . '/mailer.php';
 require_once __DIR__ . '/contracts_v2.php';
 require_once __DIR__ . '/reservation_status.php';
 
+$centralAuthPath = dirname(ROOT_PATH) . '/mailing-system/src/auth.php';
+if (is_file($centralAuthPath)) {
+    require_once $centralAuthPath;
+}
+
 load_env(ROOT_PATH . '/.env');
 date_default_timezone_set(env('APP_TIMEZONE', 'Europe/Brussels'));
 
@@ -73,17 +78,21 @@ if (PHP_SAPI !== 'cli' && $isProduction) {
 $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
     || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
 
-session_name(env('SESSION_NAME', 'aab_huur_session'));
-session_set_cookie_params([
-    'lifetime' => 0,
-    'path' => '/',
-    'secure' => $isHttps,
-    'httponly' => true,
-    'samesite' => 'Lax',
-]);
+if (function_exists('authSessionStart')) {
+    authSessionStart();
+} else {
+    session_name(env('SESSION_NAME', 'aab_huur_session'));
+    session_set_cookie_params([
+        'lifetime' => 0,
+        'path' => '/',
+        'secure' => $isHttps,
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
 
-if (session_status() !== PHP_SESSION_ACTIVE) {
-    session_start();
+    if (session_status() !== PHP_SESSION_ACTIVE) {
+        session_start();
+    }
 }
 
 if (PHP_SAPI !== 'cli' && current_user() && is_finance()) {
