@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS users (
     name TEXT NOT NULL,
     email TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
-    role TEXT NOT NULL DEFAULT 'staff' CHECK(role IN ('admin', 'staff')),
+    role TEXT NOT NULL DEFAULT 'staff' CHECK(role IN ('admin', 'staff', 'finance')),
     active INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
