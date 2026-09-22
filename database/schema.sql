@@ -61,7 +61,11 @@ CREATE TABLE IF NOT EXISTS reservations (
     status TEXT NOT NULL DEFAULT 'reserved' CHECK(status IN ('reserved', 'confirmed', 'picked_up', 'returned', 'cancelled')),
     rental_kind TEXT NOT NULL DEFAULT 'rental' CHECK(rental_kind IN ('rental', 'replacement')),
     total_price REAL NOT NULL DEFAULT 0,
+    replacement_cost_note TEXT,
     notes TEXT,
+    cancelled_reason TEXT,
+    cancelled_by INTEGER,
+    cancelled_at TEXT,
     created_by INTEGER,
     eid_physical_checked INTEGER NOT NULL DEFAULT 0 CHECK(eid_physical_checked IN (0,1)),
     eid_photo_match INTEGER NOT NULL DEFAULT 0 CHECK(eid_photo_match IN (0,1)),
@@ -75,6 +79,7 @@ CREATE TABLE IF NOT EXISTS reservations (
     FOREIGN KEY (customer_id) REFERENCES customers(id),
     FOREIGN KEY (identity_document_id) REFERENCES identity_documents(id) ON DELETE SET NULL,
     FOREIGN KEY (created_by) REFERENCES users(id),
+    FOREIGN KEY (cancelled_by) REFERENCES users(id),
     FOREIGN KEY (eid_checked_by) REFERENCES users(id),
     FOREIGN KEY (closed_by) REFERENCES users(id)
 );
