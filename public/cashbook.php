@@ -112,7 +112,8 @@ foreach ($rentals as &$rental) {
 unset($rental);
 
 $receivableSql =
-    "SELECT r.id, r.start_at, r.end_at, r.status, r.total_price,
+    "SELECT r.id, r.start_at, r.end_at, r.status, r.total_price, r.rental_kind,
+            r.replacement_cost_note,
             c.name AS customer_name,
             COALESCE(payments.paid_amount, 0) AS paid_amount,
             COALESCE((
