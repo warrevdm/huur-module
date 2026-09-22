@@ -88,7 +88,7 @@ if ($method === 'POST') {
              (bike_id, customer_id, identity_document_id, start_at, end_at, status, rental_kind, total_price, notes, created_by,
               eid_physical_checked, eid_photo_match)
              VALUES
-             (:bike_id, :customer_id, NULL, :start_at, :end_at, :status, 'replacement', 0, :notes, :created_by, 0, 0)'
+             (:bike_id, :customer_id, NULL, :start_at, :end_at, :status, :rental_kind, 0, :notes, :created_by, 0, 0)'
         );
         $reservationStmt->execute([
             ':bike_id' => $selectedBikeId,
@@ -96,6 +96,7 @@ if ($method === 'POST') {
             ':start_at' => $startAt,
             ':end_at' => $endAt,
             ':status' => $startDate === $today ? 'picked_up' : 'confirmed',
+            ':rental_kind' => 'replacement',
             ':notes' => 'Snelle fietsregistratie via werkplaats. Start ' . $startAtObject->format('d/m/Y H:i') . ', retour ' . $returnAt->format('d/m/Y') . ' om 17:00.',
             ':created_by' => (int) current_user()['id'],
         ]);
