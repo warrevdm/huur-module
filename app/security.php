@@ -41,6 +41,31 @@ function is_admin(): bool
     return (current_user()['role'] ?? '') === 'admin';
 }
 
+function is_finance(): bool
+{
+    return (current_user()['role'] ?? '') === 'finance';
+}
+
+function can_view_cashbook(): bool
+{
+    $role = (string) (current_user()['role'] ?? '');
+    return in_array($role, ['admin', 'finance'], true);
+}
+
+function require_cashbook(): void
+{
+    require_auth();
+    if (!can_view_cashbook()) {
+        http_response_code(403);
+        exit('Geen toegang tot het kasboek.');
+    }
+}
+
+function user_home_page(): string
+{
+    return is_finance() ? 'cashbook.php' : 'planning.php';
+}
+
 function require_admin(): void
 {
     require_auth();
