@@ -4,6 +4,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const path = window.location.pathname.toLowerCase();
   if (!path.endsWith('/reservation.php') && !path.endsWith('reservation.php')) return;
 
+  if (document.querySelector('[data-finance-readonly="1"]')) return;
+
   const params = new URLSearchParams(window.location.search);
   const id = params.get('id');
   if (!id || !/^\d+$/.test(id)) return;
