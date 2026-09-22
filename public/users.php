@@ -19,7 +19,7 @@ if ($method === 'POST') {
 
     $name = trim((string) ($_POST['name'] ?? ''));
     $email = strtolower(trim((string) ($_POST['email'] ?? '')));
-    $role = in_array($_POST['role'] ?? '', ['admin', 'staff'], true) ? (string) $_POST['role'] : 'staff';
+    $role = in_array($_POST['role'] ?? '', ['admin', 'staff', 'finance'], true) ? (string) $_POST['role'] : 'staff';
     $active = !empty($_POST['active']) ? 1 : 0;
     $password = (string) ($_POST['password'] ?? '');
 
@@ -119,7 +119,11 @@ render_header('Gebruikersprofielen');
                     <tr>
                         <td><strong><?= e((string) $user['name']) ?></strong></td>
                         <td><?= e((string) $user['email']) ?></td>
-                        <td><?= $user['role'] === 'admin' ? 'Beheerder' : 'Medewerker' ?></td>
+                        <td><?= e(match ((string) $user['role']) {
+                            'admin' => 'Beheerder',
+                            'finance' => 'Boekhouding',
+                            default => 'Medewerker',
+                        }) ?></td>
                         <td><span class="badge <?= (int) $user['active'] === 1 ? 'badge-active' : 'badge-inactive' ?>"><?= (int) $user['active'] === 1 ? 'Actief' : 'Inactief' ?></span></td>
                         <td><a href="users.php?edit=<?= (int) $user['id'] ?>">Bewerken</a></td>
                     </tr>
@@ -146,6 +150,7 @@ render_header('Gebruikersprofielen');
                 <label>Rol</label>
                 <select name="role">
                     <option value="staff" <?= ($editUser['role'] ?? 'staff') === 'staff' ? 'selected' : '' ?>>Medewerker</option>
+                    <option value="finance" <?= ($editUser['role'] ?? '') === 'finance' ? 'selected' : '' ?>>Boekhouding</option>
                     <option value="admin" <?= ($editUser['role'] ?? '') === 'admin' ? 'selected' : '' ?>>Beheerder</option>
                 </select>
             </div>
