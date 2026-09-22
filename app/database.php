@@ -28,6 +28,7 @@ function db(): PDO
     $pdo->exec('PRAGMA foreign_keys = ON');
     $pdo->exec('PRAGMA busy_timeout = 5000');
 
+    ensure_user_role_schema($pdo);
     ensure_reservation_kind_schema($pdo);
 
     return $pdo;
@@ -64,4 +65,58 @@ function ensure_reservation_kind_schema(PDO $pdo): void
          WHERE rental_kind = 'rental'
            AND notes LIKE 'Snelle fietsregistratie via werkplaats.%'"
     );
+}
+
+
+function ensure_user_role_schema(PDO $pdo): void
+{
+    $tableSql = $pdo->query(
+        "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'users' LIMIT 1"
+    )->fetchColumn();
+
+    if (!$tableSql || str_contains((string) $tableSql, "'finance'")) {
+        return;
+    }
+
+    $pdo->exec('PRAGMA foreign_keys = OFF');
+
+    try {
+        $pdo->beginTransaction();
+
+        $pdo->exec(
+            "CREATE TABLE users_role_migration (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                email TEXT NOT NULL UNIQUE,
+                password_hash TEXT NOT NULL,
+                role TEXT NOT NULL DEFAULT 'staff' CHECK(role IN ('admin', 'staff', 'finance')),
+                active INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )"
+        );
+
+        $pdo->exec(
+            "INSERT INTO users_role_migration (id, name, email, password_hash, role, active, created_at)
+             SELECT id, name, email, password_hash, role, active, created_at
+             FROM users"
+        );
+
+        $pdo->exec('DROP TABLE users');
+        $pdo->exec('ALTER TABLE users_role_migration RENAME TO users');
+
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        $pdo->exec('PRAGMA foreign_keys = ON');
+        throw $e;
+    }
+
+    $pdo->exec('PRAGMA foreign_keys = ON');
+
+    $violations = $pdo->query('PRAGMA foreign_key_check')->fetchAll();
+    if ($violations) {
+        throw new RuntimeException('Gebruikersrolmigratie veroorzaakte een foreign-keyfout.');
+    }
 }
