@@ -14,6 +14,7 @@ if (!$reservation) {
 
 $contract = find_contract_by_reservation($id);
 $isFinanceView = is_finance();
+$isReplacementReservation = (string) ($reservation['rental_kind'] ?? 'rental') === 'replacement';
 
 if ((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     if ($isFinanceView) {
@@ -23,6 +24,216 @@ if ((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 
     verify_csrf();
     $action = (string) ($_POST['action'] ?? '');
+
+    if ($action === 'update-replacement-details') {
+        if (!$isReplacementReservation || (string) $reservation['status'] === 'cancelled') {
+            flash('error', 'Dit vervangdossier kan niet worden aangepast.');
+            redirect('reservation.php?id=' . $id);
+        }
+
+        $customerName = trim((string) ($_POST['customer_name'] ?? ''));
+        $customerPhone = trim((string) ($_POST['customer_phone'] ?? ''));
+        $customerEmail = trim((string) ($_POST['customer_email'] ?? ''));
+        $customerAddress = trim((string) ($_POST['customer_address'] ?? ''));
+        $startAt = parse_datetime(
+            (string) ($_POST['start_date'] ?? ''),
+            (string) ($_POST['start_time'] ?? '')
+        );
+        $endAt = parse_datetime(
+            (string) ($_POST['end_date'] ?? ''),
+            (string) ($_POST['end_time'] ?? '')
+        );
+        $bikeId = (int) ($_POST['bike_id'] ?? 0);
+        $status = (string) ($_POST['status'] ?? '');
+        $notes = trim((string) ($_POST['notes'] ?? '')) ?: null;
+
+        if ($customerName === '' || !$startAt || !$endAt || $endAt <= $startAt) {
+            flash('error', 'Vul een geldige klantnaam en periode in.');
+            redirect('reservation.php?id=' . $id . '#vervangfiets-beheer');
+        }
+        if ($customerEmail !== '' && !filter_var($customerEmail, FILTER_VALIDATE_EMAIL)) {
+            flash('error', 'Vul een geldig e-mailadres in of laat het veld leeg.');
+            redirect('reservation.php?id=' . $id . '#vervangfiets-beheer');
+        }
+        if (!in_array($status, ['reserved', 'confirmed', 'picked_up', 'returned'], true)) {
+            flash('error', 'Kies een geldige status.');
+            redirect('reservation.php?id=' . $id . '#vervangfiets-beheer');
+        }
+
+        $bike = find_bike($bikeId);
+        if (!$bike) {
+            flash('error', 'De gekozen fiets bestaat niet meer.');
+            redirect('reservation.php?id=' . $id . '#vervangfiets-beheer');
+        }
+
+        $currentBikeIds = array_map(
+            static fn (array $item): int => (int) $item['id'],
+            (array) ($reservation['bikes'] ?? [])
+        );
+        $bikeChanged = !in_array($bikeId, $currentBikeIds, true);
+        if ($bikeChanged && (string) ($bike['status'] ?? '') !== 'active') {
+            flash('error', 'De gekozen fiets is niet actief en kan niet worden ingepland.');
+            redirect('reservation.php?id=' . $id . '#vervangfiets-beheer');
+        }
+
+        if (reservation_conflicts(
+            $bikeId,
+            $startAt->format('Y-m-d H:i:s'),
+            $endAt->format('Y-m-d H:i:s'),
+            $id
+        )) {
+            flash('error', 'De gekozen fiets is al ingepland binnen deze periode.');
+            redirect('reservation.php?id=' . $id . '#vervangfiets-beheer');
+        }
+
+        db()->beginTransaction();
+        try {
+            $customerStmt = db()->prepare(
+                'UPDATE customers
+                 SET name = :name, phone = :phone, email = :email, address = :address
+                 WHERE id = :id'
+            );
+            $customerStmt->execute([
+                ':name' => $customerName,
+                ':phone' => $customerPhone !== '' ? $customerPhone : null,
+                ':email' => $customerEmail !== '' ? $customerEmail : null,
+                ':address' => $customerAddress !== '' ? $customerAddress : null,
+                ':id' => (int) $reservation['customer_id'],
+            ]);
+
+            $reservationStmt = db()->prepare(
+                'UPDATE reservations
+                 SET bike_id = :bike_id,
+                     start_at = :start_at,
+                     end_at = :end_at,
+                     status = :status,
+                     notes = :notes,
+                     updated_at = CURRENT_TIMESTAMP
+                 WHERE id = :id'
+            );
+            $reservationStmt->execute([
+                ':bike_id' => $bikeId,
+                ':start_at' => $startAt->format('Y-m-d H:i:s'),
+                ':end_at' => $endAt->format('Y-m-d H:i:s'),
+                ':status' => $status,
+                ':notes' => $notes,
+                ':id' => $id,
+            ]);
+
+            if ($bikeChanged || count($currentBikeIds) !== 1) {
+                $deleteBikeStmt = db()->prepare('DELETE FROM reservation_bikes WHERE reservation_id = :reservation_id');
+                $deleteBikeStmt->execute([':reservation_id' => $id]);
+
+                $insertBikeStmt = db()->prepare(
+                    'INSERT INTO reservation_bikes (reservation_id, bike_id, daily_rate)
+                     VALUES (:reservation_id, :bike_id, 0)'
+                );
+                $insertBikeStmt->execute([
+                    ':reservation_id' => $id,
+                    ':bike_id' => $bikeId,
+                ]);
+            }
+
+            db()->commit();
+        } catch (Throwable $e) {
+            if (db()->inTransaction()) {
+                db()->rollBack();
+            }
+            flash('error', 'De gegevens van de vervangfiets konden niet worden opgeslagen.');
+            redirect('reservation.php?id=' . $id . '#vervangfiets-beheer');
+        }
+
+        audit('update_replacement_reservation', 'reservation', $id, [
+            'old_bike_ids' => $currentBikeIds,
+            'new_bike_id' => $bikeId,
+            'old_start_at' => (string) $reservation['start_at'],
+            'new_start_at' => $startAt->format('Y-m-d H:i:s'),
+            'old_end_at' => (string) $reservation['end_at'],
+            'new_end_at' => $endAt->format('Y-m-d H:i:s'),
+            'old_status' => (string) $reservation['status'],
+            'new_status' => $status,
+        ]);
+
+        flash('success', 'Vervangfietsplanning bijgewerkt.');
+        redirect('reservation.php?id=' . $id . '#vervangfiets-beheer');
+    }
+
+    if ($action === 'update-replacement-cost') {
+        if (!$isReplacementReservation) {
+            flash('error', 'Deze actie is alleen beschikbaar voor vervangfietsen.');
+            redirect('reservation.php?id=' . $id);
+        }
+
+        $amount = max(0, round((float) ($_POST['replacement_cost'] ?? 0), 2));
+        $costNote = trim((string) ($_POST['replacement_cost_note'] ?? '')) ?: null;
+        $summary = reservation_payment_summary($id, (float) $reservation['total_price']);
+
+        if ($amount + 0.009 < (float) $summary['paid']) {
+            flash('error', 'De vervangkost kan niet lager zijn dan het reeds betaalde bedrag.');
+            redirect('reservation.php?id=' . $id . '#vervangkost');
+        }
+
+        $stmt = db()->prepare(
+            'UPDATE reservations
+             SET total_price = :amount,
+                 replacement_cost_note = :cost_note,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE id = :id'
+        );
+        $stmt->execute([
+            ':amount' => $amount,
+            ':cost_note' => $costNote,
+            ':id' => $id,
+        ]);
+
+        audit('update_replacement_cost', 'reservation', $id, [
+            'old_amount' => (float) $reservation['total_price'],
+            'new_amount' => $amount,
+            'cost_note' => $costNote,
+        ]);
+
+        flash('success', $amount > 0 ? 'Vervangkost opgeslagen.' : 'Vervangkost verwijderd.');
+        redirect('reservation.php?id=' . $id . '#vervangkost');
+    }
+
+    if ($action === 'cancel-replacement') {
+        if (!$isReplacementReservation || in_array((string) $reservation['status'], ['returned', 'cancelled'], true)) {
+            flash('error', 'Deze vervangfietsplanning kan niet meer uit de planning worden verwijderd.');
+            redirect('reservation.php?id=' . $id);
+        }
+
+        $reason = trim((string) ($_POST['cancel_reason'] ?? ''));
+        if ($reason === '') {
+            flash('error', 'Vul een reden in voor het verwijderen uit de planning.');
+            redirect('reservation.php?id=' . $id . '#vervangfiets-verwijderen');
+        }
+
+        $cancelledAt = (new DateTimeImmutable('now', new DateTimeZone('Europe/Brussels')))->format('Y-m-d H:i:s');
+        $stmt = db()->prepare(
+            "UPDATE reservations
+             SET status = 'cancelled',
+                 cancelled_reason = :reason,
+                 cancelled_by = :cancelled_by,
+                 cancelled_at = :cancelled_at,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE id = :id"
+        );
+        $stmt->execute([
+            ':reason' => $reason,
+            ':cancelled_by' => (int) current_user()['id'],
+            ':cancelled_at' => $cancelledAt,
+            ':id' => $id,
+        ]);
+
+        audit('cancel_replacement_reservation', 'reservation', $id, [
+            'reason' => $reason,
+            'previous_status' => (string) $reservation['status'],
+            'cancelled_at' => $cancelledAt,
+        ]);
+
+        flash('success', 'De vervangfiets is uit de planning verwijderd. Het dossier blijft bewaard in de historiek.');
+        redirect('planning.php');
+    }
 
     if ($action === 'confirm-eid-check') {
         if (!empty($reservation['eid_checked_at'])) {
@@ -127,11 +338,6 @@ if ((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     }
 
     if ($action === 'add-payment') {
-        if ((string) ($reservation['rental_kind'] ?? 'rental') === 'replacement') {
-            flash('error', 'Voor een vervangfiets wordt geen huurbetaling geregistreerd.');
-            redirect('reservation.php?id=' . $id);
-        }
-
         $amount = round((float) ($_POST['amount'] ?? 0), 2);
         $method = (string) ($_POST['method'] ?? '');
         $note = trim((string) ($_POST['note'] ?? '')) ?: null;
@@ -167,8 +373,10 @@ if ((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             'amount' => $amount,
             'method' => $method,
         ]);
-        flash('success', 'Betaling geregistreerd in het betalingslog.');
-        redirect('reservation.php?id=' . $id . '#betalingen');
+        $paymentContext = $isReplacementReservation ? 'replacement_cost' : 'rental';
+        audit('payment_context', 'payment_log', $paymentId, ['context' => $paymentContext]);
+        flash('success', $isReplacementReservation ? 'Betaling op de vervangkost geregistreerd.' : 'Betaling geregistreerd in het betalingslog.');
+        redirect('reservation.php?id=' . $id . ($isReplacementReservation ? '#vervangkost' : '#betalingen'));
     }
 }
 
