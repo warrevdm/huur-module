@@ -48,6 +48,10 @@ $reservationMigrations = [
     'eid_checked_at' => 'ALTER TABLE reservations ADD COLUMN eid_checked_at TEXT',
     'closed_by' => 'ALTER TABLE reservations ADD COLUMN closed_by INTEGER REFERENCES users(id)',
     'closed_at' => 'ALTER TABLE reservations ADD COLUMN closed_at TEXT',
+    'replacement_cost_note' => 'ALTER TABLE reservations ADD COLUMN replacement_cost_note TEXT',
+    'cancelled_reason' => 'ALTER TABLE reservations ADD COLUMN cancelled_reason TEXT',
+    'cancelled_by' => 'ALTER TABLE reservations ADD COLUMN cancelled_by INTEGER REFERENCES users(id)',
+    'cancelled_at' => 'ALTER TABLE reservations ADD COLUMN cancelled_at TEXT',
 ];
 
 foreach ($reservationMigrations as $column => $sql) {
