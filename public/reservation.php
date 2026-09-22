@@ -386,8 +386,9 @@ $payments = reservation_payments($id);
 $paymentSummary = reservation_payment_summary($id, (float) $reservation['total_price']);
 $rentalKind = (string) ($reservation['rental_kind'] ?? 'rental');
 $isReplacement = $rentalKind === 'replacement';
+$replacementBikeOptions = $isReplacement ? all_bikes(true) : [];
 
-render_header('Verhuur #' . $id);
+render_header(($isReplacement ? 'Vervangfiets #' : 'Verhuur #') . $id);
 ?>
 <?php if ($isFinanceView): ?>
     <div class="actions mb-18">
@@ -405,7 +406,13 @@ render_header('Verhuur #' . $id);
             <div class="actions">
                 <?php if ($isReplacement): ?>
                     <span class="booking-kind booking-kind-replacement">↺ Vervangfiets</span>
-                    <span class="badge booking-payment-not-required">€0 · geen huurbetaling</span>
+                    <?php if ((float) $reservation['total_price'] > 0): ?>
+                        <span class="badge <?= $paymentSummary['is_paid'] ? 'booking-payment-paid' : ($paymentSummary['is_partial'] ? 'booking-payment-partial' : 'booking-payment-open') ?>">
+                            € <?= number_format((float) $reservation['total_price'], 2, ',', '.') ?> vervangkost
+                        </span>
+                    <?php else: ?>
+                        <span class="badge booking-payment-not-required">€0 · geen kost</span>
+                    <?php endif; ?>
                 <?php else: ?>
                     <span class="booking-kind booking-kind-rental">€ Huurfiets</span>
                     <?php if (!$isFinanceView): ?>
@@ -440,13 +447,30 @@ render_header('Verhuur #' . $id);
             <dt>Telefoon</dt><dd><?= e((string) ($reservation['customer_phone'] ?: '—')) ?></dd>
             <dt>E-mail</dt><dd><?= e((string) ($reservation['customer_email'] ?: '—')) ?></dd>
             <dt>Adres</dt><dd><?= e((string) ($reservation['customer_address'] ?: '—')) ?></dd>
-            <dt>Type</dt><dd><?= $isReplacement ? '↺ Vervangfiets · geen huurbetaling' : '€ Huurfiets · betaling verwacht' ?></dd>
-            <dt>Totaalprijs</dt><dd><?= $isReplacement ? 'Niet van toepassing' : '€ ' . number_format((float) $reservation['total_price'], 2, ',', '.') ?></dd>
+            <dt>Type</dt><dd><?= $isReplacement ? '↺ Vervangfiets' : '€ Huurfiets · betaling verwacht' ?></dd>
+            <?php if ($isReplacement): ?>
+                <dt>Vervangkost</dt><dd><?= (float) $reservation['total_price'] > 0 ? '€ ' . number_format((float) $reservation['total_price'], 2, ',', '.') : 'Geen kost gekoppeld' ?></dd>
+                <dt>Kostomschrijving</dt><dd><?= e((string) (($reservation['replacement_cost_note'] ?? '') ?: '—')) ?></dd>
+            <?php else: ?>
+                <dt>Totaalprijs</dt><dd>€ <?= number_format((float) $reservation['total_price'], 2, ',', '.') ?></dd>
+            <?php endif; ?>
             <dt>Notities</dt><dd><?= nl2br(e((string) ($reservation['notes'] ?: '—'))) ?></dd>
         </dl>
     </div>
 
     <aside class="card col-4">
+        <?php if ($isReplacement): ?>
+            <h2>Vervangdossier</h2>
+            <p><span class="badge status-<?= e((string) $reservation['status']) ?>"><?= e(status_label((string) $reservation['status'])) ?></span></p>
+            <p class="muted">Dit dossier is aangemaakt via Snelle vervangfiets en gebruikt geen klassieke huurprijs of standaard huurovereenkomst.</p>
+            <?php if (!empty($reservation['cancelled_at'])): ?>
+                <div class="alert alert-warning">
+                    <strong>Uit planning verwijderd</strong><br>
+                    <?= e((new DateTimeImmutable((string) $reservation['cancelled_at']))->format('d/m/Y H:i')) ?><br>
+                    Reden: <?= e((string) (($reservation['cancelled_reason'] ?? '') ?: 'Niet opgegeven')) ?>
+                </div>
+            <?php endif; ?>
+        <?php else: ?>
         <h2>Huurovereenkomst</h2>
         <?php if (!$contract): ?>
             <p class="muted">Nog geen contract opgemaakt.</p>
@@ -459,7 +483,9 @@ render_header('Verhuur #' . $id);
             <p><span class="badge status-reserved">Wacht op handtekening</span></p>
             <?php if (!$isFinanceView): ?><a class="button" href="contract.php?reservation_id=<?= $id ?>">Naar ondertekening</a><?php endif; ?>
         <?php endif; ?>
+        <?php endif; ?>
 
+        <?php if (!$isReplacement): ?>
         <hr><h2 id="identiteitscontrole">eID-identiteitscontrole</h2>
         <?php if (!empty($reservation['eid_checked_at'])): ?>
             <div class="alert alert-success">
@@ -504,6 +530,7 @@ render_header('Verhuur #' . $id);
             <?php if (!$isFinanceView): ?><a class="button button-secondary" href="index.php?route=id-download&amp;id=<?= (int) $reservation['document_id'] ?>">Veilig openen</a><?php endif; ?>
         <?php else: ?>
             <p class="muted">Geen document gekoppeld.</p>
+        <?php endif; ?>
         <?php endif; ?>
     </aside>
 
