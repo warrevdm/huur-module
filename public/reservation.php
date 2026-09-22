@@ -468,6 +468,7 @@ render_header(($isReplacement ? 'Vervangfiets #' : 'Verhuur #') . $id);
                 <div class="alert alert-warning">
                     <strong>Uit planning verwijderd</strong><br>
                     <?= e((new DateTimeImmutable((string) $reservation['cancelled_at']))->format('d/m/Y H:i')) ?><br>
+                    Door: <?= e((string) (($reservation['cancelled_by_name'] ?? '') ?: 'Onbekend')) ?><br>
                     Reden: <?= e((string) (($reservation['cancelled_reason'] ?? '') ?: 'Niet opgegeven')) ?>
                 </div>
             <?php endif; ?>
