@@ -104,3 +104,18 @@
         flex: 1 1 140px;
     }
 }
+
+
+.cashbook-reservation-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--green-dark);
+    font-weight: 900;
+    text-decoration: none;
+}
+
+.cashbook-reservation-link:hover,
+.cashbook-reservation-link:focus-visible {
+    text-decoration: underline;
+}
