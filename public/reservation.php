@@ -338,6 +338,7 @@ if ((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     }
 
     if ($action === 'add-payment') {
+        $paymentAnchor = $isReplacementReservation ? '#vervangkost' : '#betalingen';
         $amount = round((float) ($_POST['amount'] ?? 0), 2);
         $method = (string) ($_POST['method'] ?? '');
         $note = trim((string) ($_POST['note'] ?? '')) ?: null;
@@ -345,15 +346,15 @@ if ((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 
         if ($amount <= 0 || !in_array($method, ['bancontact', 'cash'], true)) {
             flash('error', 'Vul een positief bedrag in en kies Bancontact of cash.');
-            redirect('reservation.php?id=' . $id . '#betalingen');
+            redirect('reservation.php?id=' . $id . $paymentAnchor);
         }
         if ((float) $reservation['total_price'] <= 0) {
             flash('error', 'Stel eerst de totaalprijs in voordat je een betaling registreert.');
-            redirect('reservation.php?id=' . $id . '#betalingen');
+            redirect('reservation.php?id=' . $id . $paymentAnchor);
         }
         if ($amount - (float) $summary['outstanding'] > 0.009) {
             flash('error', 'Het bedrag is hoger dan het openstaande saldo.');
-            redirect('reservation.php?id=' . $id . '#betalingen');
+            redirect('reservation.php?id=' . $id . $paymentAnchor);
         }
 
         $stmt = db()->prepare(
@@ -533,6 +534,193 @@ render_header(($isReplacement ? 'Vervangfiets #' : 'Verhuur #') . $id);
         <?php endif; ?>
         <?php endif; ?>
     </aside>
+
+    <?php if ($isReplacement): ?>
+        <?php if (!$isFinanceView && (string) $reservation['status'] !== 'cancelled'): ?>
+        <div class="card col-12" id="vervangfiets-beheer">
+            <div class="actions actions-between">
+                <div>
+                    <h2>Vervangfiets beheren</h2>
+                    <p class="muted">Pas klant, fiets, periode en status aan. Beschikbaarheid wordt bij opslaan opnieuw gecontroleerd.</p>
+                </div>
+                <a class="button button-secondary" href="planning.php?start=<?= e((new DateTimeImmutable((string) $reservation['start_at']))->format('Y-m-d')) ?>">Toon in planning</a>
+            </div>
+
+            <form method="post" class="stack mt-18">
+                <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
+                <input type="hidden" name="id" value="<?= $id ?>">
+                <input type="hidden" name="action" value="update-replacement-details">
+
+                <div class="form-grid">
+                    <div class="field field-full">
+                        <label for="replacement-bike">Vervangfiets *</label>
+                        <select id="replacement-bike" name="bike_id" required>
+                            <?php foreach ($replacementBikeOptions as $bikeOption):
+                                $isCurrentBike = (int) $bikeOption['id'] === (int) $reservation['bike_id'];
+                                $optionUnavailable = !$isCurrentBike && (string) $bikeOption['status'] !== 'active';
+                            ?>
+                                <option value="<?= (int) $bikeOption['id'] ?>" <?= $isCurrentBike ? 'selected' : '' ?> <?= $optionUnavailable ? 'disabled' : '' ?>>
+                                    <?= e((string) $bikeOption['code'] . ' — ' . (string) $bikeOption['name'] . ' (' . (string) $bikeOption['category'] . ')' . ($optionUnavailable ? ' · niet actief' : '')) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div class="field">
+                        <label for="replacement-customer-name">Klantnaam *</label>
+                        <input id="replacement-customer-name" name="customer_name" required value="<?= e((string) $reservation['customer_name']) ?>">
+                    </div>
+                    <div class="field">
+                        <label for="replacement-phone">Telefoon</label>
+                        <input id="replacement-phone" name="customer_phone" type="tel" value="<?= e((string) ($reservation['customer_phone'] ?? '')) ?>">
+                    </div>
+                    <div class="field">
+                        <label for="replacement-email">E-mail</label>
+                        <input id="replacement-email" name="customer_email" type="email" value="<?= e((string) ($reservation['customer_email'] ?? '')) ?>">
+                    </div>
+                    <div class="field">
+                        <label for="replacement-address">Adres</label>
+                        <input id="replacement-address" name="customer_address" value="<?= e((string) ($reservation['customer_address'] ?? '')) ?>">
+                    </div>
+
+                    <div class="field">
+                        <label for="replacement-start-date">Startdatum *</label>
+                        <input id="replacement-start-date" name="start_date" type="date" required value="<?= e((new DateTimeImmutable((string) $reservation['start_at']))->format('Y-m-d')) ?>">
+                    </div>
+                    <div class="field">
+                        <label for="replacement-start-time">Startuur *</label>
+                        <input id="replacement-start-time" name="start_time" type="time" required value="<?= e((new DateTimeImmutable((string) $reservation['start_at']))->format('H:i')) ?>">
+                    </div>
+                    <div class="field">
+                        <label for="replacement-end-date">Einddatum *</label>
+                        <input id="replacement-end-date" name="end_date" type="date" required value="<?= e((new DateTimeImmutable((string) $reservation['end_at']))->format('Y-m-d')) ?>">
+                    </div>
+                    <div class="field">
+                        <label for="replacement-end-time">Retouruur *</label>
+                        <input id="replacement-end-time" name="end_time" type="time" required value="<?= e((new DateTimeImmutable((string) $reservation['end_at']))->format('H:i')) ?>">
+                    </div>
+
+                    <div class="field">
+                        <label for="replacement-status">Status</label>
+                        <select id="replacement-status" name="status">
+                            <?php foreach (['reserved', 'confirmed', 'picked_up', 'returned'] as $replacementStatus): ?>
+                                <option value="<?= e($replacementStatus) ?>" <?= (string) $reservation['status'] === $replacementStatus ? 'selected' : '' ?>><?= e(status_label($replacementStatus)) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="field field-full">
+                        <label for="replacement-notes">Interne notities</label>
+                        <textarea id="replacement-notes" name="notes"><?= e((string) ($reservation['notes'] ?? '')) ?></textarea>
+                    </div>
+                </div>
+
+                <div class="actions">
+                    <button class="button" type="submit">Wijzigingen opslaan</button>
+                    <span class="help">Bij een fietswissel controleert het systeem automatisch of de nieuwe fiets vrij is in de volledige periode.</span>
+                </div>
+            </form>
+        </div>
+        <?php endif; ?>
+
+        <div class="card col-12 payment-card" id="vervangkost">
+            <div class="actions actions-between">
+                <div>
+                    <h2>Vervangkost / eigen bijdrage</h2>
+                    <p class="muted">Standaard €0. Alleen gebruiken wanneer er voor dit specifieke vervangdossier effectief een kost wordt aangerekend.</p>
+                </div>
+                <?php if ((float) $reservation['total_price'] <= 0): ?>
+                    <span class="payment-state payment-paid">Geen kost</span>
+                <?php elseif ($paymentSummary['is_paid']): ?>
+                    <span class="payment-state payment-paid">Vervangkost betaald</span>
+                <?php elseif ($paymentSummary['is_partial']): ?>
+                    <span class="payment-state payment-partial">Deels betaald</span>
+                <?php else: ?>
+                    <span class="payment-state payment-open">Vervangkost open</span>
+                <?php endif; ?>
+            </div>
+
+            <div class="payment-summary-grid">
+                <div><span>Vervangkost</span><strong>€ <?= number_format((float) $reservation['total_price'], 2, ',', '.') ?></strong></div>
+                <div><span>Betaald</span><strong>€ <?= number_format((float) $paymentSummary['paid'], 2, ',', '.') ?></strong></div>
+                <div><span>Openstaand</span><strong>€ <?= number_format((float) $paymentSummary['outstanding'], 2, ',', '.') ?></strong></div>
+            </div>
+
+            <?php if (!$isFinanceView && (string) $reservation['status'] !== 'cancelled'): ?>
+                <form method="post" class="form-grid mt-18">
+                    <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
+                    <input type="hidden" name="id" value="<?= $id ?>">
+                    <input type="hidden" name="action" value="update-replacement-cost">
+                    <div class="field">
+                        <label for="replacement-cost">Bedrag</label>
+                        <input id="replacement-cost" name="replacement_cost" type="number" min="<?= e(number_format((float) $paymentSummary['paid'], 2, '.', '')) ?>" step="0.01" value="<?= e(number_format((float) $reservation['total_price'], 2, '.', '')) ?>" required>
+                    </div>
+                    <div class="field">
+                        <label for="replacement-cost-note">Reden / omschrijving</label>
+                        <input id="replacement-cost-note" name="replacement_cost_note" value="<?= e((string) ($reservation['replacement_cost_note'] ?? '')) ?>" placeholder="Bijv. eigen bijdrage schade">
+                    </div>
+                    <div class="field field-full">
+                        <button class="button button-secondary" type="submit">Vervangkost opslaan</button>
+                    </div>
+                </form>
+
+                <?php if (!$paymentSummary['is_paid'] && (float) $reservation['total_price'] > 0): ?>
+                    <form method="post" class="payment-entry-form mt-18">
+                        <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
+                        <input type="hidden" name="id" value="<?= $id ?>">
+                        <input type="hidden" name="action" value="add-payment">
+                        <div class="field">
+                            <label>Bedrag</label>
+                            <input name="amount" type="number" min="0.01" max="<?= e(number_format((float) $paymentSummary['outstanding'], 2, '.', '')) ?>" step="0.01" value="<?= e(number_format((float) $paymentSummary['outstanding'], 2, '.', '')) ?>" required>
+                        </div>
+                        <div class="field">
+                            <label>Betaalwijze</label>
+                            <select name="method" required><option value="bancontact">Bancontact</option><option value="cash">Cash</option></select>
+                        </div>
+                        <div class="field">
+                            <label>Notitie</label>
+                            <input name="note" placeholder="Bijv. vervangkost betaald aan balie">
+                        </div>
+                        <button class="button" type="submit">Betaling registreren</button>
+                    </form>
+                <?php endif; ?>
+            <?php endif; ?>
+
+            <h3 class="mt-18">Betalingshistoriek vervangkost</h3>
+            <?php if ($payments): ?>
+                <div class="table-wrap"><table>
+                    <thead><tr><th>Datum</th><th>Bedrag</th><th>Betaalwijze</th><th>Geregistreerd door</th><th>Notitie</th></tr></thead>
+                    <tbody><?php foreach ($payments as $payment): ?>
+                        <tr>
+                            <td><?= e((new DateTimeImmutable((string) $payment['paid_at']))->format('d/m/Y H:i')) ?></td>
+                            <td><strong>€ <?= number_format((float) $payment['amount'], 2, ',', '.') ?></strong></td>
+                            <td><?= e(payment_method_label((string) $payment['method'])) ?></td>
+                            <td><?= e((string) ($payment['recorded_by_name'] ?: 'Onbekend')) ?></td>
+                            <td><?= e((string) ($payment['note'] ?: '—')) ?></td>
+                        </tr>
+                    <?php endforeach; ?></tbody>
+                </table></div>
+            <?php else: ?>
+                <p class="muted">Nog geen betaling gekoppeld aan dit vervangdossier.</p>
+            <?php endif; ?>
+        </div>
+
+        <?php if (!$isFinanceView && !in_array((string) $reservation['status'], ['returned', 'cancelled'], true)): ?>
+        <div class="card col-12" id="vervangfiets-verwijderen">
+            <h2>Uit planning verwijderen</h2>
+            <p class="muted">De reservatie verdwijnt uit de planning, maar blijft bewaard als geannuleerd dossier voor historiek en audit.</p>
+            <form method="post" class="actions">
+                <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
+                <input type="hidden" name="id" value="<?= $id ?>">
+                <input type="hidden" name="action" value="cancel-replacement">
+                <div class="field" style="min-width: min(100%, 420px);">
+                    <label for="replacement-cancel-reason">Reden *</label>
+                    <input id="replacement-cancel-reason" name="cancel_reason" required placeholder="Bijv. klant heeft geen vervangfiets meer nodig">
+                </div>
+                <button class="button button-danger" type="submit">Uit planning verwijderen</button>
+            </form>
+        </div>
+        <?php endif; ?>
+    <?php endif; ?>
 
     <?php if (!$isReplacement): ?>
     <div class="card col-12 payment-card" id="betalingen">
