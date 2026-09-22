@@ -1,0 +1,40 @@
+name: Windows eID bridge
+
+on:
+  push:
+    branches:
+      - agent/initial-rental-module
+    paths:
+      - 'tools/eid-bridge/**'
+      - '.github/workflows/eid-bridge-windows.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'tools/eid-bridge/**'
+      - '.github/workflows/eid-bridge-windows.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Publish Windows x64 bridge
+        shell: pwsh
+        run: >-
+          dotnet publish tools/eid-bridge/AabEidBridge.csproj
+          -c Release
+          -r win-x86
+          --self-contained true
+          -p:PublishSingleFile=true
+          -o tools/eid-bridge/dist
+      - name: Upload bridge artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AAB-eID-Bridge-win-x86
+          path: tools/eid-bridge/dist/**
+          if-no-files-found: error

@@ -1,0 +1,36 @@
+name: PHP check
+
+on:
+  push:
+    branches: [agent/initial-rental-module]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint-and-migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: pdo_sqlite, fileinfo, dom, mbstring
+          coverage: none
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist
+      - name: Configure test environment
+        run: cp .env.example .env
+      - name: Lint PHP files
+        run: find app bin public -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: Check JavaScript
+        run: node --check public/assets/app.js
+      - name: Run database setup
+        run: php bin/setup.php
+      - name: Verify upgraded schema
+        run: |
+          php -r 'require "app/bootstrap.php"; $tables=["reservation_bikes","payment_logs","login_attempts"]; foreach($tables as $table){$s=db()->prepare("SELECT 1 FROM sqlite_master WHERE type=\"table\" AND name=:name");$s->execute([":name"=>$table]);if(!$s->fetchColumn()){fwrite(STDERR,"Missing table: $table\n");exit(1);}} $bikeCols=array_column(db()->query("PRAGMA table_info(bikes)")->fetchAll(),"name"); if(!in_array("usage_type",$bikeCols,true)){fwrite(STDERR,"Missing bikes column: usage_type\n");exit(1);} $reservationCols=array_column(db()->query("PRAGMA table_info(reservations)")->fetchAll(),"name"); foreach(["eid_physical_checked","eid_photo_match","eid_checked_by","eid_checked_at"] as $col){if(!in_array($col,$reservationCols,true)){fwrite(STDERR,"Missing reservations column: $col\n");exit(1);}} $contractCols=array_column(db()->query("PRAGMA table_info(rental_contracts)")->fetchAll(),"name"); if(!in_array("public_token_expires_at",$contractCols,true)){fwrite(STDERR,"Missing rental_contracts column: public_token_expires_at\n");exit(1);} echo "Schema OK\n";'
+      - name: Verify rental pricing rules
+        run: |
+          php -r 'require "app/bootstrap.php"; $cases=[[30,150,1,30],[30,150,4,120],[30,150,5,150],[30,150,7,150],[30,150,8,180],[15,75,1,15],[15,75,4,60],[15,75,5,75],[15,75,7,75],[15,75,8,90]]; foreach($cases as [$day,$week,$days,$expected]){$actual=rental_price_for_days($day,$week,$days);if(abs($actual-$expected)>0.001){fwrite(STDERR,"Pricing fail: $day/$week for $days days = $actual, expected $expected\n");exit(1);}} $replacement=rental_pricing_rule(["category"=>"E-bike","usage_type"=>"replacement"]); if(!$replacement || (float)$replacement["day_rate"]!==30.0 || (float)$replacement["week_rate"]!==150.0){fwrite(STDERR,"Replacement E-bike must use category pricing\n");exit(1);} $testBike=rental_pricing_rule(["category"=>"Stadsfiets","usage_type"=>"test"]); if(!$testBike || (float)$testBike["day_rate"]!==15.0 || (float)$testBike["week_rate"]!==75.0){fwrite(STDERR,"Test stadsfiets must use category pricing\n");exit(1);} echo "Pricing OK\n";'

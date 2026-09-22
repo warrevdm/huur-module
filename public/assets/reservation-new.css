@@ -1,0 +1,468 @@
+.rental-create-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    gap: 20px;
+    align-items: start;
+}
+
+.rental-create-main {
+    display: grid;
+    gap: 18px;
+    min-width: 0;
+}
+
+.rental-step-card {
+    padding: 20px;
+}
+
+.rental-step-heading,
+.rental-summary-heading,
+.rental-step-heading-main {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.rental-step-heading {
+    margin-bottom: 18px;
+}
+
+.rental-step-heading-split {
+    justify-content: space-between;
+    gap: 18px;
+}
+
+.rental-step-heading h2,
+.rental-summary-heading h2 {
+    margin: 0 0 4px;
+}
+
+.rental-step-heading p,
+.rental-summary-heading p {
+    margin: 0;
+}
+
+.rental-step-number {
+    display: inline-grid;
+    place-items: center;
+    flex: 0 0 34px;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: #e7f5e2;
+    color: #245f21;
+    font-weight: 900;
+}
+
+.rental-period-grid {
+    display: grid;
+    grid-template-columns: 1.35fr .9fr 1.35fr .9fr;
+    gap: 12px;
+    align-items: end;
+}
+
+.rental-period-card .availability-message {
+    margin-top: 12px;
+}
+
+.rental-native-select,
+[data-visual-bike-picker] [data-bike-code-filter-wrap] {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    overflow: hidden !important;
+    clip: rect(0 0 0 0) !important;
+    white-space: nowrap !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+.rental-selected-count {
+    display: inline-flex;
+    align-items: center;
+    min-height: 34px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: #eef3ee;
+    color: #405046;
+    font-size: .84rem;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.rental-bike-toolbar {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+}
+
+.rental-bike-toolbar input[type="search"] {
+    max-width: 380px;
+}
+
+.rental-bike-filters {
+    display: flex;
+    gap: 7px;
+    flex-wrap: wrap;
+}
+
+.rental-bike-filters .button {
+    min-height: 36px;
+    padding: 7px 11px;
+    font-size: .84rem;
+}
+
+.rental-bike-filters .is-active {
+    background: #dff2d8;
+    color: #245f21;
+    box-shadow: inset 0 0 0 1px #87bf78;
+}
+
+.rental-bike-picker {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.rental-bike-option {
+    position: relative;
+    display: grid;
+    grid-template-rows: 145px 1fr;
+    padding: 0;
+    overflow: hidden;
+    border: 2px solid #d8e0d9;
+    border-radius: 12px;
+    background: #fff;
+    color: #17211a;
+    text-align: left;
+    font: inherit;
+    cursor: pointer;
+    transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+}
+
+.rental-bike-option:hover:not(:disabled) {
+    border-color: #91bd86;
+    transform: translateY(-1px);
+    box-shadow: 0 7px 20px rgba(23, 33, 26, .08);
+}
+
+.rental-bike-option.is-selected {
+    border-color: #60bb46;
+    box-shadow: 0 0 0 3px rgba(96, 187, 70, .16);
+}
+
+.rental-bike-option.is-unavailable,
+.rental-bike-option:disabled {
+    opacity: .52;
+    cursor: not-allowed;
+    filter: grayscale(.2);
+}
+
+.rental-bike-option[hidden] {
+    display: none;
+}
+
+.rental-bike-image {
+    position: relative;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    background: #e7ece7;
+}
+
+.rental-bike-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.rental-bike-no-photo {
+    color: #6a746c;
+    font-size: .82rem;
+    font-weight: 750;
+}
+
+.rental-bike-check {
+    position: absolute;
+    top: 9px;
+    right: 9px;
+    display: grid;
+    place-items: center;
+    width: 29px;
+    height: 29px;
+    border-radius: 50%;
+    background: #60bb46;
+    color: #0b2108;
+    font-weight: 950;
+    opacity: 0;
+    transform: scale(.8);
+    transition: opacity .15s ease, transform .15s ease;
+}
+
+.rental-bike-option.is-selected .rental-bike-check {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.rental-bike-content {
+    display: grid;
+    gap: 5px;
+    padding: 12px;
+}
+
+.rental-bike-topline {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    align-items: center;
+}
+
+.rental-bike-topline strong {
+    font-size: .98rem;
+}
+
+.rental-bike-topline span {
+    font-size: .7rem;
+    font-weight: 850;
+    color: #2b6e26;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
+
+.rental-bike-option.is-unavailable .rental-bike-topline span {
+    color: #8a3c3c;
+}
+
+.rental-bike-name {
+    font-weight: 800;
+    line-height: 1.25;
+}
+
+.rental-bike-meta {
+    color: #657167;
+    font-size: .8rem;
+}
+
+.rental-bike-price {
+    margin-top: 3px;
+    font-size: .82rem;
+    font-weight: 800;
+    color: #287323;
+}
+
+.rental-customer-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.rental-extra-details {
+    margin-top: 18px;
+    border-top: 1px solid #d6dfd7;
+    padding-top: 14px;
+}
+
+.rental-extra-details summary {
+    cursor: pointer;
+    font-weight: 800;
+    color: #405046;
+}
+
+.rental-extra-content {
+    display: grid;
+    gap: 16px;
+    padding-top: 16px;
+}
+
+.rental-summary-card {
+    position: sticky;
+    top: 18px;
+    display: grid;
+    gap: 15px;
+}
+
+.rental-summary-heading {
+    margin-bottom: 2px;
+}
+
+.rental-summary-period {
+    padding: 12px;
+    border-radius: 9px;
+    background: #f3f7f3;
+    font-size: .88rem;
+    font-weight: 750;
+}
+
+.rental-summary-bikes {
+    display: grid;
+    gap: 8px;
+    max-height: 285px;
+    overflow-y: auto;
+}
+
+.rental-summary-empty {
+    padding: 13px;
+    border: 1px dashed #cbd5cc;
+    border-radius: 9px;
+    color: #657167;
+    font-size: .86rem;
+}
+
+.rental-summary-bike {
+    display: grid;
+    grid-template-columns: 52px 1fr auto;
+    gap: 9px;
+    align-items: center;
+    padding: 8px;
+    border: 1px solid #dce4dd;
+    border-radius: 9px;
+    background: #fafcf9;
+}
+
+.rental-summary-bike-thumb {
+    width: 52px;
+    height: 42px;
+    overflow: hidden;
+    border-radius: 7px;
+    background: #e7ece7;
+}
+
+.rental-summary-bike-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.rental-summary-bike strong,
+.rental-summary-bike small {
+    display: block;
+}
+
+.rental-summary-bike small {
+    margin-top: 2px;
+    color: #657167;
+}
+
+.rental-summary-remove {
+    border: 0;
+    background: transparent;
+    color: #8b3333;
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 5px;
+}
+
+.rental-hidden-price-button {
+    display: none !important;
+}
+
+.rental-total-block {
+    padding: 15px;
+    border-radius: 11px;
+    background: #17211a;
+    color: #fff;
+}
+
+.rental-total-block > span,
+.rental-total-block > small {
+    display: block;
+}
+
+.rental-total-block > span {
+    color: #cbd6cc;
+    font-size: .8rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+}
+
+.rental-total-input {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin: 6px 0 4px;
+    font-size: 1.55rem;
+    font-weight: 900;
+}
+
+.rental-total-input input {
+    padding: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: #fff;
+    font-size: 1.55rem;
+    font-weight: 900;
+    box-shadow: none;
+}
+
+.rental-total-input input:focus {
+    outline: 0;
+    border: 0;
+    box-shadow: none;
+}
+
+.rental-total-block small {
+    color: #aebbb0;
+    font-size: .74rem;
+}
+
+.rental-primary-submit {
+    min-height: 50px;
+    font-size: 1rem;
+}
+
+.rental-contract-note {
+    margin: -5px 0 0;
+    text-align: center;
+}
+
+@media (max-width: 1180px) {
+    .rental-create-layout {
+        grid-template-columns: minmax(0, 1fr) 320px;
+    }
+    .rental-bike-picker {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 900px) {
+    .rental-create-layout {
+        grid-template-columns: 1fr;
+    }
+    .rental-summary-card {
+        position: static;
+    }
+    .rental-period-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 640px) {
+    .rental-step-card,
+    .rental-summary-card {
+        padding: 15px;
+    }
+    .rental-step-heading-split,
+    .rental-bike-toolbar {
+        align-items: stretch;
+        flex-direction: column;
+    }
+    .rental-bike-toolbar input[type="search"] {
+        max-width: none;
+    }
+    .rental-bike-picker,
+    .rental-customer-grid,
+    .rental-period-grid {
+        grid-template-columns: 1fr;
+    }
+    .rental-bike-option {
+        grid-template-columns: 120px 1fr;
+        grid-template-rows: auto;
+        min-height: 118px;
+    }
+    .rental-bike-image {
+        min-height: 118px;
+    }
+}
