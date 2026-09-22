@@ -13,8 +13,8 @@ $name = trim((string) ($argv[1] ?? ''));
 $email = strtolower(trim((string) ($argv[2] ?? '')));
 $role = trim((string) ($argv[3] ?? 'staff'));
 
-if ($name === '' || !filter_var($email, FILTER_VALIDATE_EMAIL) || !in_array($role, ['admin', 'staff'], true)) {
-    fwrite(STDERR, "Gebruik: php bin/upsert-user.php \"Naam\" e-mail@voorbeeld.be [staff|admin]\n");
+if ($name === '' || !filter_var($email, FILTER_VALIDATE_EMAIL) || !in_array($role, ['admin', 'staff', 'finance'], true)) {
+    fwrite(STDERR, "Gebruik: php bin/upsert-user.php \"Naam\" e-mail@voorbeeld.be [staff|finance|admin]\n");
     exit(1);
 }
 
