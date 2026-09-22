@@ -32,15 +32,14 @@ $nowSql = $now->format('Y-m-d H:i:s');
 
 $paymentStmt = db()->prepare(
     "SELECT p.id, p.paid_at, p.amount, p.method, p.note,
-            r.id AS reservation_id, r.start_at, r.end_at, r.status, r.total_price,
+            r.id AS reservation_id, r.start_at, r.end_at, r.status, r.total_price, r.rental_kind,
             c.name AS customer_name,
             u.name AS recorded_by_name
      FROM payment_logs p
      JOIN reservations r ON r.id = p.reservation_id
      JOIN customers c ON c.id = r.customer_id
      LEFT JOIN users u ON u.id = p.recorded_by
-     WHERE r.rental_kind = 'rental'
-       AND p.paid_at >= :from_at
+     WHERE p.paid_at >= :from_at
        AND p.paid_at < :to_exclusive
      ORDER BY p.paid_at DESC, p.id DESC"
 );
@@ -51,11 +50,18 @@ $paymentStmt->execute([
 $payments = $paymentStmt->fetchAll();
 
 $receivedTotal = 0.0;
+$receivedRentalTotal = 0.0;
+$receivedReplacementTotal = 0.0;
 $cashTotal = 0.0;
 $bancontactTotal = 0.0;
 foreach ($payments as $payment) {
     $amount = (float) $payment['amount'];
     $receivedTotal += $amount;
+    if ((string) ($payment['rental_kind'] ?? 'rental') === 'replacement') {
+        $receivedReplacementTotal += $amount;
+    } else {
+        $receivedRentalTotal += $amount;
+    }
     if ((string) $payment['method'] === 'cash') {
         $cashTotal += $amount;
     } elseif ((string) $payment['method'] === 'bancontact') {
@@ -64,7 +70,8 @@ foreach ($payments as $payment) {
 }
 
 $rentalStmt = db()->prepare(
-    "SELECT r.id, r.start_at, r.end_at, r.status, r.total_price,
+    "SELECT r.id, r.start_at, r.end_at, r.status, r.total_price, r.rental_kind,
+            r.replacement_cost_note,
             c.name AS customer_name,
             COALESCE(payments.paid_amount, 0) AS paid_amount,
             COALESCE((
@@ -121,7 +128,7 @@ $receivableSql =
          FROM payment_logs
          GROUP BY reservation_id
      ) payments ON payments.reservation_id = r.id
-     WHERE r.rental_kind = 'rental'
+     WHERE (r.rental_kind = 'rental' OR (r.rental_kind = 'replacement' AND r.total_price > 0))
        AND r.status != 'cancelled'
        AND (r.total_price - COALESCE(payments.paid_amount, 0)) > 0.009";
 
@@ -174,11 +181,12 @@ if ((string) ($_GET['export'] ?? '') === 'csv') {
     }
 
     fwrite($output, "\xEF\xBB\xBF");
-    fputcsv($output, ['Datum', 'Verhuur', 'Klant', 'Betaalwijze', 'Bedrag', 'Geregistreerd door', 'Notitie'], ';');
+    fputcsv($output, ['Datum', 'Type', 'Verhuur', 'Klant', 'Betaalwijze', 'Bedrag', 'Geregistreerd door', 'Notitie'], ';');
 
     foreach ($payments as $payment) {
         fputcsv($output, [
             (new DateTimeImmutable((string) $payment['paid_at']))->format('d/m/Y H:i'),
+            (string) ($payment['rental_kind'] ?? 'rental') === 'replacement' ? 'Vervangkost' : 'Huur',
             '#' . (int) $payment['reservation_id'],
             (string) $payment['customer_name'],
             payment_method_label((string) $payment['method']),
@@ -210,7 +218,7 @@ render_header('Kasboek');
     <div class="cashbook-toolbar">
         <div>
             <h2>Financieel overzicht verhuur</h2>
-            <p class="muted">Enkel betalende huurreservaties. Vervangfietsen worden niet als omzet of verwachte inkomsten meegerekend.</p>
+            <p class="muted">Effectieve huurbetalingen én expliciet aangerekende vervangkosten. Een vervangfiets zonder kost blijft financieel buiten het kasboek.</p>
         </div>
         <a class="button button-secondary" href="cashbook.php?from=<?= e($from->format('Y-m-d')) ?>&amp;to=<?= e($to->format('Y-m-d')) ?>&amp;export=csv">CSV kasboek</a>
     </div>
@@ -235,7 +243,7 @@ render_header('Kasboek');
     <div class="card col-4 cashbook-kpi">
         <span class="muted">Ontvangen in periode</span>
         <span class="stat cashbook-positive">€ <?= number_format($receivedTotal, 2, ',', '.') ?></span>
-        <small>Cash € <?= number_format($cashTotal, 2, ',', '.') ?> · Bancontact € <?= number_format($bancontactTotal, 2, ',', '.') ?></small>
+        <small>Huur € <?= number_format($receivedRentalTotal, 2, ',', '.') ?> · Vervangkost € <?= number_format($receivedReplacementTotal, 2, ',', '.') ?><br>Cash € <?= number_format($cashTotal, 2, ',', '.') ?> · Bancontact € <?= number_format($bancontactTotal, 2, ',', '.') ?></small>
     </div>
     <div class="card col-4 cashbook-kpi">
         <span class="muted">Huurwaarde gestart in periode</span>
@@ -260,11 +268,12 @@ render_header('Kasboek');
     </div>
     <div class="table-wrap">
         <table class="cashbook-table">
-            <thead><tr><th>Verhuur</th><th>Klant</th><th>Periode</th><th>Fiets(en)</th><th>Totaal</th><th>Betaald</th><th>Open</th></tr></thead>
+            <thead><tr><th>Dossier</th><th>Type</th><th>Klant</th><th>Periode</th><th>Fiets(en)</th><th>Totaal</th><th>Betaald</th><th>Open</th></tr></thead>
             <tbody>
             <?php foreach ($overdue as $item): ?>
                 <tr>
                     <td><a class="cashbook-reservation-link" href="reservation.php?id=<?= (int) $item['id'] ?>"><strong>#<?= (int) $item['id'] ?></strong></a><br><span class="cashbook-subtle"><?= e(status_label((string) $item['status'])) ?></span></td>
+                    <td><?= (string) ($item['rental_kind'] ?? 'rental') === 'replacement' ? 'Vervangkost' : 'Huur' ?></td>
                     <td><?= e((string) $item['customer_name']) ?></td>
                     <td><?= e((new DateTimeImmutable((string) $item['start_at']))->format('d/m/Y')) ?> → <?= e((new DateTimeImmutable((string) $item['end_at']))->format('d/m/Y')) ?></td>
                     <td><?= e((string) $item['bikes']) ?></td>
@@ -289,11 +298,12 @@ render_header('Kasboek');
     </div>
     <div class="table-wrap">
         <table class="cashbook-table">
-            <thead><tr><th>Datum</th><th>Verhuur</th><th>Klant</th><th>Betaalwijze</th><th>Bedrag</th><th>Geregistreerd door</th><th>Notitie</th></tr></thead>
+            <thead><tr><th>Datum</th><th>Type</th><th>Dossier</th><th>Klant</th><th>Betaalwijze</th><th>Bedrag</th><th>Geregistreerd door</th><th>Notitie</th></tr></thead>
             <tbody>
             <?php foreach ($payments as $payment): ?>
                 <tr>
                     <td><?= e((new DateTimeImmutable((string) $payment['paid_at']))->format('d/m/Y H:i')) ?></td>
+                    <td><span class="booking-kind booking-kind-<?= (string) ($payment['rental_kind'] ?? 'rental') === 'replacement' ? 'replacement' : 'rental' ?>"><?= (string) ($payment['rental_kind'] ?? 'rental') === 'replacement' ? '↺ Vervangkost' : '€ Huur' ?></span></td>
                     <td><a class="cashbook-reservation-link" href="reservation.php?id=<?= (int) $payment['reservation_id'] ?>"><strong>#<?= (int) $payment['reservation_id'] ?></strong></a></td>
                     <td><?= e((string) $payment['customer_name']) ?></td>
                     <td><span class="cashbook-method"><?= e(payment_method_label((string) $payment['method'])) ?></span></td>
@@ -303,7 +313,7 @@ render_header('Kasboek');
                 </tr>
             <?php endforeach; ?>
             <?php if (!$payments): ?>
-                <tr><td colspan="7" class="muted">Geen geregistreerde huurbetalingen in deze periode.</td></tr>
+                <tr><td colspan="8" class="muted">Geen geregistreerde betalingen in deze periode.</td></tr>
             <?php endif; ?>
             </tbody>
         </table>
@@ -352,11 +362,12 @@ render_header('Kasboek');
     </div>
     <div class="table-wrap">
         <table class="cashbook-table">
-            <thead><tr><th>Verhuur</th><th>Klant</th><th>Periode</th><th>Fiets(en)</th><th>Status</th><th>Totaal</th><th>Reeds betaald</th><th>Verwacht</th></tr></thead>
+            <thead><tr><th>Dossier</th><th>Type</th><th>Klant</th><th>Periode</th><th>Fiets(en)</th><th>Status</th><th>Totaal</th><th>Reeds betaald</th><th>Verwacht</th></tr></thead>
             <tbody>
             <?php foreach ($forecast as $item): ?>
                 <tr>
                     <td><a class="cashbook-reservation-link" href="reservation.php?id=<?= (int) $item['id'] ?>"><strong>#<?= (int) $item['id'] ?></strong></a></td>
+                    <td><?= (string) ($item['rental_kind'] ?? 'rental') === 'replacement' ? 'Vervangkost' : 'Huur' ?></td>
                     <td><?= e((string) $item['customer_name']) ?></td>
                     <td><?= e((new DateTimeImmutable((string) $item['start_at']))->format('d/m/Y')) ?> → <?= e((new DateTimeImmutable((string) $item['end_at']))->format('d/m/Y')) ?></td>
                     <td><?= e((string) $item['bikes']) ?></td>
@@ -367,7 +378,7 @@ render_header('Kasboek');
                 </tr>
             <?php endforeach; ?>
             <?php if (!$forecast): ?>
-                <tr><td colspan="8" class="muted">Geen openstaande actieve of toekomstige huurinkomsten.</td></tr>
+                <tr><td colspan="9" class="muted">Geen openstaande actieve of toekomstige inkomsten.</td></tr>
             <?php endif; ?>
             </tbody>
         </table>
