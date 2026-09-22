@@ -86,6 +86,13 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
 }
 
+if (PHP_SAPI !== 'cli' && current_user() && is_finance()) {
+    $scriptName = basename((string) ($_SERVER['SCRIPT_NAME'] ?? ''));
+    if (!in_array($scriptName, ['index.php', 'cashbook.php'], true)) {
+        redirect('cashbook.php');
+    }
+}
+
 header_remove('X-Powered-By');
 header('X-Frame-Options: DENY');
 header('X-Robots-Tag: noindex, nofollow, noarchive');
