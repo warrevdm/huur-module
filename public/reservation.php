@@ -13,8 +13,14 @@ if (!$reservation) {
 }
 
 $contract = find_contract_by_reservation($id);
+$isFinanceView = is_finance();
 
 if ((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+    if ($isFinanceView) {
+        http_response_code(403);
+        exit('Boekhouding heeft alleen leesrechten op reservaties.');
+    }
+
     verify_csrf();
     $action = (string) ($_POST['action'] ?? '');
 
@@ -175,7 +181,13 @@ $isReplacement = $rentalKind === 'replacement';
 
 render_header('Verhuur #' . $id);
 ?>
-<section class="grid">
+<?php if ($isFinanceView): ?>
+    <div class="actions mb-18">
+        <a class="button button-secondary" href="cashbook.php">← Terug naar kasboek</a>
+        <span class="badge">Alleen-lezen voor Boekhouding</span>
+    </div>
+<?php endif; ?>
+<section class="grid" data-finance-readonly="<?= $isFinanceView ? '1' : '0' ?>">
     <div class="card col-8">
         <div class="actions actions-between">
             <div>
@@ -188,7 +200,9 @@ render_header('Verhuur #' . $id);
                     <span class="badge booking-payment-not-required">€0 · geen huurbetaling</span>
                 <?php else: ?>
                     <span class="booking-kind booking-kind-rental">€ Huurfiets</span>
-                    <a class="button button-secondary" href="#betalingen">Betaling registreren</a>
+                    <?php if (!$isFinanceView): ?>
+                        <a class="button button-secondary" href="#betalingen">Betaling registreren</a>
+                    <?php endif; ?>
                 <?php endif; ?>
                 <span class="badge status-<?= e((string) $reservation['status']) ?>"><?= e(status_label((string) $reservation['status'])) ?></span>
             </div>
@@ -228,14 +242,14 @@ render_header('Verhuur #' . $id);
         <h2>Huurovereenkomst</h2>
         <?php if (!$contract): ?>
             <p class="muted">Nog geen contract opgemaakt.</p>
-            <a class="button" href="contract.php?reservation_id=<?= $id ?>">Gezamenlijk contract opmaken</a>
+            <?php if (!$isFinanceView): ?><a class="button" href="contract.php?reservation_id=<?= $id ?>">Gezamenlijk contract opmaken</a><?php endif; ?>
         <?php elseif (!empty($contract['signed_at'])): ?>
             <p><span class="badge status-confirmed">Ondertekend</span></p>
             <p class="muted">Door <?= e((string) $contract['signer_name']) ?> op <?= e((new DateTimeImmutable((string) $contract['signed_at']))->format('d/m/Y H:i')) ?>.</p>
-            <a class="button" href="contract.php?reservation_id=<?= $id ?>">Contract bekijken</a>
+            <?php if (!$isFinanceView): ?><a class="button" href="contract.php?reservation_id=<?= $id ?>">Contract bekijken</a><?php endif; ?>
         <?php else: ?>
             <p><span class="badge status-reserved">Wacht op handtekening</span></p>
-            <a class="button" href="contract.php?reservation_id=<?= $id ?>">Naar ondertekening</a>
+            <?php if (!$isFinanceView): ?><a class="button" href="contract.php?reservation_id=<?= $id ?>">Naar ondertekening</a><?php endif; ?>
         <?php endif; ?>
 
         <hr><h2 id="identiteitscontrole">eID-identiteitscontrole</h2>
@@ -248,7 +262,8 @@ render_header('Verhuur #' . $id);
                 Tijdstip: <?= e((new DateTimeImmutable((string) $reservation['eid_checked_at']))->format('d/m/Y H:i')) ?>
             </div>
         <?php else: ?>
-            <p class="muted">Nog niet bevestigd. Voer deze controle uit wanneer de huurder fysiek aanwezig is.</p>
+            <p class="muted">Nog niet bevestigd.<?= $isFinanceView ? '' : ' Voer deze controle uit wanneer de huurder fysiek aanwezig is.' ?></p>
+            <?php if (!$isFinanceView): ?>
             <form method="post" class="stack">
                 <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
                 <input type="hidden" name="id" value="<?= $id ?>">
@@ -271,13 +286,14 @@ render_header('Verhuur #' . $id);
 
                 <button class="button button-secondary" type="submit">Identiteitscontrole bevestigen</button>
             </form>
+            <?php endif; ?>
         <?php endif; ?>
 
         <hr><h2>Identiteitsdocument</h2>
         <?php if ($reservation['document_id'] && !$reservation['document_deleted_at']): ?>
             <p><strong><?= e((string) $reservation['document_name']) ?></strong><br><span class="muted"><?= e((string) $reservation['document_mime']) ?> · <?= number_format((int) $reservation['document_size'] / 1024, 0, ',', '.') ?> KB</span></p>
             <p class="muted">Bewaren tot <?= e($reservation['retention_until'] ? (new DateTimeImmutable((string) $reservation['retention_until']))->format('d/m/Y') : 'niet ingesteld') ?></p>
-            <a class="button button-secondary" href="index.php?route=id-download&amp;id=<?= (int) $reservation['document_id'] ?>">Veilig openen</a>
+            <?php if (!$isFinanceView): ?><a class="button button-secondary" href="index.php?route=id-download&amp;id=<?= (int) $reservation['document_id'] ?>">Veilig openen</a><?php endif; ?>
         <?php else: ?>
             <p class="muted">Geen document gekoppeld.</p>
         <?php endif; ?>
@@ -287,8 +303,8 @@ render_header('Verhuur #' . $id);
     <div class="card col-12 payment-card" id="betalingen">
         <div class="actions actions-between">
             <div>
-                <h2>Betalingen registreren</h2>
-                <p class="muted">Log iedere betaling rechtstreeks op deze reservatie, met betaalwijze, medewerker, datum en uur.</p>
+                <h2><?= $isFinanceView ? 'Betalingen' : 'Betalingen registreren' ?></h2>
+                <p class="muted"><?= $isFinanceView ? 'Financieel overzicht van deze reservatie.' : 'Log iedere betaling rechtstreeks op deze reservatie, met betaalwijze, medewerker, datum en uur.' ?></p>
             </div>
             <?php if ($paymentSummary['is_paid']): ?>
                 <span class="payment-state payment-paid">Volledig afgerekend</span>
@@ -305,7 +321,7 @@ render_header('Verhuur #' . $id);
             <div><span>Openstaand</span><strong>€ <?= number_format((float) $paymentSummary['outstanding'], 2, ',', '.') ?></strong></div>
         </div>
 
-        <?php if (empty($contract['signed_at'])): ?>
+        <?php if (!$isFinanceView && empty($contract['signed_at'])): ?>
             <form method="post" class="payment-price-form mt-18">
                 <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
                 <input type="hidden" name="id" value="<?= $id ?>">
@@ -319,7 +335,7 @@ render_header('Verhuur #' . $id);
             </form>
         <?php endif; ?>
 
-        <?php if (!$paymentSummary['is_paid'] && (float) $reservation['total_price'] > 0): ?>
+        <?php if (!$isFinanceView && !$paymentSummary['is_paid'] && (float) $reservation['total_price'] > 0): ?>
             <form method="post" class="payment-entry-form mt-18">
                 <input type="hidden" name="_token" value="<?= e(csrf_token()) ?>">
                 <input type="hidden" name="id" value="<?= $id ?>">
@@ -329,9 +345,9 @@ render_header('Verhuur #' . $id);
                 <div class="field"><label>Notitie</label><input name="note" placeholder="Bijvoorbeeld voorschot of restbetaling"></div>
                 <button class="button" type="submit">Betaling registreren</button>
             </form>
-        <?php elseif ((float) $reservation['total_price'] <= 0): ?>
+        <?php elseif (!$isFinanceView && (float) $reservation['total_price'] <= 0): ?>
             <div class="alert alert-warning mt-18">Stel hierboven eerst de totaalprijs in om een betaling te kunnen registreren.</div>
-        <?php else: ?>
+        <?php elseif (!$isFinanceView): ?>
             <div class="alert alert-success mt-18">Deze reservatie is volledig afgerekend. Nieuwe betalingen zijn geblokkeerd om dubbel registreren te voorkomen.</div>
         <?php endif; ?>
 
@@ -354,6 +370,7 @@ render_header('Verhuur #' . $id);
         <?php endif; ?>
     </div>
 
+    <?php if (!$isFinanceView): ?>
     <?php require __DIR__ . '/reservation-stamp.php'; ?>
 
     <div class="card col-12">
@@ -365,6 +382,7 @@ render_header('Verhuur #' . $id);
             <a class="button button-secondary" href="planning.php?start=<?= e((new DateTimeImmutable((string) $reservation['start_at']))->format('Y-m-d')) ?>">Toon in planning</a>
         </form>
     </div>
+    <?php endif; ?>
     <?php endif; ?>
 </section>
 <?php render_footer();
