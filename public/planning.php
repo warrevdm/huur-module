@@ -237,10 +237,10 @@ render_header('Verhuurplanning');
                             $kindIcon = $isReplacement ? '↺' : '€';
                             $totalPrice = round((float) ($active['total_price'] ?? 0), 2);
                             $paidAmount = round((float) ($active['paid_amount'] ?? 0), 2);
-                            if ($isReplacement) {
+                            if ($isReplacement && $totalPrice <= 0) {
                                 $paymentClass = 'booking-payment-not-required';
                                 $paymentIcon = '€0';
-                                $paymentTitle = 'Geen huurbetaling verwacht voor vervangfiets';
+                                $paymentTitle = 'Geen kost gekoppeld aan deze vervangfiets';
                             } elseif ($totalPrice <= 0) {
                                 $paymentClass = 'booking-payment-unpriced';
                                 $paymentIcon = '€—';
@@ -248,27 +248,29 @@ render_header('Verhuurplanning');
                             } elseif ($paidAmount + 0.009 >= $totalPrice) {
                                 $paymentClass = 'booking-payment-paid';
                                 $paymentIcon = '€✓';
-                                $paymentTitle = 'Volledig betaald: € ' . number_format($paidAmount, 2, ',', '.');
+                                $paymentTitle = ($isReplacement ? 'Vervangkost betaald: € ' : 'Volledig betaald: € ') . number_format($paidAmount, 2, ',', '.');
                             } elseif ($paidAmount > 0) {
                                 $paymentClass = 'booking-payment-partial';
                                 $paymentIcon = '€½';
-                                $paymentTitle = 'Deels betaald: € ' . number_format($paidAmount, 2, ',', '.') . ' van € ' . number_format($totalPrice, 2, ',', '.');
+                                $paymentTitle = ($isReplacement ? 'Vervangkost deels betaald: € ' : 'Deels betaald: € ') . number_format($paidAmount, 2, ',', '.') . ' van € ' . number_format($totalPrice, 2, ',', '.');
                             } else {
                                 $paymentClass = 'booking-payment-open';
                                 $paymentIcon = '€!';
-                                $paymentTitle = 'Nog niet betaald: € ' . number_format($totalPrice, 2, ',', '.');
+                                $paymentTitle = ($isReplacement ? 'Vervangkost open: € ' : 'Nog niet betaald: € ') . number_format($totalPrice, 2, ',', '.');
                             }
                     ?>
                         <td colspan="<?= $span ?>">
                             <a class="booking-block booking-type-<?= $isReplacement ? 'replacement' : 'rental' ?> status-<?= e($active['status']) ?>" href="reservation.php?id=<?= (int) $active['id'] ?>" data-customer-name="<?= e($active['customer_name']) ?>" title="<?= e($active['customer_name']) ?> · <?= e($kindLabel) ?> · <?= e((new DateTimeImmutable($active['start_at']))->format('d/m/Y H:i')) ?> → <?= e($activeEnd->format('d/m/Y H:i')) ?>">
                                 <span class="booking-kind-row">
                                     <span class="booking-kind booking-kind-<?= $isReplacement ? 'replacement' : 'rental' ?>"><span aria-hidden="true"><?= e($kindIcon) ?></span> <?= e($kindLabel) ?></span>
-                                    <?php if ($isReplacement): ?><span class="booking-no-payment">geen huurbetaling</span><?php endif; ?>
+                                    <?php if ($isReplacement): ?><span class="booking-no-payment"><?= $totalPrice > 0 ? 'kost € ' . number_format($totalPrice, 2, ',', '.') : 'geen kost' ?></span><?php endif; ?>
                                 </span>
                                 <span class="booking-title-row">
                                     <strong><?= e($active['customer_name']) ?></strong>
                                     <span class="booking-status-icons" aria-label="Contract- en betaalstatus">
-                                        <span class="booking-status-icon <?= $contractSigned ? 'booking-contract-signed' : 'booking-contract-open' ?>" title="<?= $contractSigned ? 'Contract ondertekend' : 'Contract nog niet ondertekend' ?>" aria-label="<?= $contractSigned ? 'Contract ondertekend' : 'Contract nog niet ondertekend' ?>"><?= $contractSigned ? '✍✓' : '✍!' ?></span>
+                                        <?php if (!$isReplacement): ?>
+                                            <span class="booking-status-icon <?= $contractSigned ? 'booking-contract-signed' : 'booking-contract-open' ?>" title="<?= $contractSigned ? 'Contract ondertekend' : 'Contract nog niet ondertekend' ?>" aria-label="<?= $contractSigned ? 'Contract ondertekend' : 'Contract nog niet ondertekend' ?>"><?= $contractSigned ? '✍✓' : '✍!' ?></span>
+                                        <?php endif; ?>
                                         <span class="booking-status-icon <?= e($paymentClass) ?>" title="<?= e($paymentTitle) ?>" aria-label="<?= e($paymentTitle) ?>"><?= e($paymentIcon) ?></span>
                                     </span>
                                 </span>
