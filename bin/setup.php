@@ -41,6 +41,7 @@ foreach (db()->query('PRAGMA table_info(reservations)')->fetchAll() as $column) 
 }
 
 $reservationMigrations = [
+    'rental_kind' => "ALTER TABLE reservations ADD COLUMN rental_kind TEXT NOT NULL DEFAULT 'rental' CHECK(rental_kind IN ('rental', 'replacement'))",
     'eid_physical_checked' => 'ALTER TABLE reservations ADD COLUMN eid_physical_checked INTEGER NOT NULL DEFAULT 0 CHECK(eid_physical_checked IN (0,1))',
     'eid_photo_match' => 'ALTER TABLE reservations ADD COLUMN eid_photo_match INTEGER NOT NULL DEFAULT 0 CHECK(eid_photo_match IN (0,1))',
     'eid_checked_by' => 'ALTER TABLE reservations ADD COLUMN eid_checked_by INTEGER REFERENCES users(id)',
@@ -57,6 +58,19 @@ foreach ($reservationMigrations as $column => $sql) {
 }
 
 db()->exec('CREATE INDEX IF NOT EXISTS idx_reservations_closed_at ON reservations(closed_at)');
+db()->exec('CREATE INDEX IF NOT EXISTS idx_reservations_rental_kind ON reservations(rental_kind)');
+
+if (isset($reservationColumns['rental_kind']) || array_key_exists('rental_kind', $reservationMigrations)) {
+    $updated = db()->exec(
+        "UPDATE reservations
+         SET rental_kind = 'replacement'
+         WHERE rental_kind = 'rental'
+           AND notes LIKE 'Snelle fietsregistratie via werkplaats.%'"
+    );
+    if ($updated > 0) {
+        echo "Bestaande snelle vervangfietsreservaties gemarkeerd: {$updated}\n";
+    }
+}
 
 $contractColumns = [];
 foreach (db()->query('PRAGMA table_info(rental_contracts)')->fetchAll() as $column) {
