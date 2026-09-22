@@ -67,6 +67,11 @@ if ((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     }
 
     if ($action === 'update-total-price') {
+        if ((string) ($reservation['rental_kind'] ?? 'rental') === 'replacement') {
+            flash('error', 'Een vervangfiets heeft geen huurbetaling of huurprijs.');
+            redirect('reservation.php?id=' . $id);
+        }
+
         $newTotalPrice = round((float) ($_POST['total_price'] ?? 0), 2);
         $summary = reservation_payment_summary($id, (float) $reservation['total_price']);
 
@@ -116,6 +121,11 @@ if ((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     }
 
     if ($action === 'add-payment') {
+        if ((string) ($reservation['rental_kind'] ?? 'rental') === 'replacement') {
+            flash('error', 'Voor een vervangfiets wordt geen huurbetaling geregistreerd.');
+            redirect('reservation.php?id=' . $id);
+        }
+
         $amount = round((float) ($_POST['amount'] ?? 0), 2);
         $method = (string) ($_POST['method'] ?? '');
         $note = trim((string) ($_POST['note'] ?? '')) ?: null;
