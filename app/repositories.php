@@ -18,7 +18,7 @@ function find_user(int $id): ?array
 
 function all_users(): array
 {
-    return db()->query("SELECT * FROM users ORDER BY active DESC, CASE role WHEN 'admin' THEN 0 ELSE 1 END, name, email")->fetchAll();
+    return db()->query("SELECT * FROM users ORDER BY active DESC, CASE role WHEN 'admin' THEN 0 WHEN 'finance' THEN 1 ELSE 2 END, name, email")->fetchAll();
 }
 
 function all_bikes(bool $includeInactive = true): array
