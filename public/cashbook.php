@@ -264,7 +264,7 @@ render_header('Kasboek');
             <tbody>
             <?php foreach ($overdue as $item): ?>
                 <tr>
-                    <td><strong>#<?= (int) $item['id'] ?></strong><br><span class="cashbook-subtle"><?= e(status_label((string) $item['status'])) ?></span></td>
+                    <td><a class="cashbook-reservation-link" href="reservation.php?id=<?= (int) $item['id'] ?>"><strong>#<?= (int) $item['id'] ?></strong></a><br><span class="cashbook-subtle"><?= e(status_label((string) $item['status'])) ?></span></td>
                     <td><?= e((string) $item['customer_name']) ?></td>
                     <td><?= e((new DateTimeImmutable((string) $item['start_at']))->format('d/m/Y')) ?> → <?= e((new DateTimeImmutable((string) $item['end_at']))->format('d/m/Y')) ?></td>
                     <td><?= e((string) $item['bikes']) ?></td>
@@ -294,7 +294,7 @@ render_header('Kasboek');
             <?php foreach ($payments as $payment): ?>
                 <tr>
                     <td><?= e((new DateTimeImmutable((string) $payment['paid_at']))->format('d/m/Y H:i')) ?></td>
-                    <td><strong>#<?= (int) $payment['reservation_id'] ?></strong></td>
+                    <td><a class="cashbook-reservation-link" href="reservation.php?id=<?= (int) $payment['reservation_id'] ?>"><strong>#<?= (int) $payment['reservation_id'] ?></strong></a></td>
                     <td><?= e((string) $payment['customer_name']) ?></td>
                     <td><span class="cashbook-method"><?= e(payment_method_label((string) $payment['method'])) ?></span></td>
                     <td class="cashbook-amount">€ <?= number_format((float) $payment['amount'], 2, ',', '.') ?></td>
@@ -324,7 +324,7 @@ render_header('Kasboek');
             <tbody>
             <?php foreach ($rentals as $rental): ?>
                 <tr>
-                    <td><strong>#<?= (int) $rental['id'] ?></strong></td>
+                    <td><a class="cashbook-reservation-link" href="reservation.php?id=<?= (int) $rental['id'] ?>"><strong>#<?= (int) $rental['id'] ?></strong></a></td>
                     <td><?= e((string) $rental['customer_name']) ?></td>
                     <td><?= e((new DateTimeImmutable((string) $rental['start_at']))->format('d/m/Y')) ?> → <?= e((new DateTimeImmutable((string) $rental['end_at']))->format('d/m/Y')) ?></td>
                     <td><?= e((string) $rental['bikes']) ?></td>
@@ -356,7 +356,7 @@ render_header('Kasboek');
             <tbody>
             <?php foreach ($forecast as $item): ?>
                 <tr>
-                    <td><strong>#<?= (int) $item['id'] ?></strong></td>
+                    <td><a class="cashbook-reservation-link" href="reservation.php?id=<?= (int) $item['id'] ?>"><strong>#<?= (int) $item['id'] ?></strong></a></td>
                     <td><?= e((string) $item['customer_name']) ?></td>
                     <td><?= e((new DateTimeImmutable((string) $item['start_at']))->format('d/m/Y')) ?> → <?= e((new DateTimeImmutable((string) $item['end_at']))->format('d/m/Y')) ?></td>
                     <td><?= e((string) $item['bikes']) ?></td>
