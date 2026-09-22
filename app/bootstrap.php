@@ -20,9 +20,17 @@ require_once __DIR__ . '/mailer.php';
 require_once __DIR__ . '/contracts_v2.php';
 require_once __DIR__ . '/reservation_status.php';
 
-$centralAuthPath = dirname(ROOT_PATH) . '/mailing-system/src/auth.php';
-if (is_file($centralAuthPath)) {
-    require_once $centralAuthPath;
+$webRoot = dirname(ROOT_PATH);
+$homeAuthBridge = $webRoot . '/home/auth.php';
+$mailingAuthPath = $webRoot . '/mailing-system/src/auth.php';
+$mailingConfigPath = $webRoot . '/mailing-system/src/config.php';
+
+if (is_file($homeAuthBridge)) {
+    require_once $homeAuthBridge;
+}
+
+if (!function_exists('authSessionStart') && is_file($mailingAuthPath) && is_file($mailingConfigPath)) {
+    require_once $mailingAuthPath;
 }
 
 load_env(ROOT_PATH . '/.env');
