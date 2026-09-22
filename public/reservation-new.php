@@ -103,9 +103,9 @@ if ($method === 'POST') {
         $primaryBike = $selectedBikes[0];
         $stmt = db()->prepare(
             'INSERT INTO reservations
-             (bike_id,customer_id,identity_document_id,start_at,end_at,status,total_price,notes,created_by,
+             (bike_id,customer_id,identity_document_id,start_at,end_at,status,rental_kind,total_price,notes,created_by,
               eid_physical_checked,eid_photo_match,eid_checked_by,eid_checked_at)
-             VALUES (:bike,:customer,:document,:start,:end,:status,:price,:notes,:user,
+             VALUES (:bike,:customer,:document,:start,:end,:status,'rental',:price,:notes,:user,
                      :eid_physical,:eid_photo,:eid_user,:eid_at)'
         );
         $stmt->execute([
@@ -169,6 +169,7 @@ if ($method === 'POST') {
             'billable_days' => (int) $priceQuote['days'],
             'calculated_total' => $priceQuote['complete'] ? (float) $priceQuote['total'] : null,
             'stored_total' => $totalPrice,
+            'rental_kind' => 'rental',
         ]);
         flash('success', count($selectedBikeIds) . ' fiets(en) ingepland. Controleer nu het gezamenlijke contract.');
         redirect('contract.php?reservation_id=' . $reservationId);
