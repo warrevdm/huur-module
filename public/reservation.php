@@ -163,6 +163,10 @@ if ((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             flash('error', 'Deze actie is alleen beschikbaar voor vervangfietsen.');
             redirect('reservation.php?id=' . $id);
         }
+        if ((string) $reservation['status'] === 'cancelled') {
+            flash('error', 'Een geannuleerd vervangdossier kan niet meer financieel worden aangepast.');
+            redirect('reservation.php?id=' . $id . '#vervangkost');
+        }
 
         $amount = max(0, round((float) ($_POST['replacement_cost'] ?? 0), 2));
         $costNote = trim((string) ($_POST['replacement_cost_note'] ?? '')) ?: null;
@@ -339,6 +343,10 @@ if ((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
 
     if ($action === 'add-payment') {
         $paymentAnchor = $isReplacementReservation ? '#vervangkost' : '#betalingen';
+        if ($isReplacementReservation && (string) $reservation['status'] === 'cancelled') {
+            flash('error', 'Op een geannuleerd vervangdossier kan geen nieuwe betaling worden geregistreerd.');
+            redirect('reservation.php?id=' . $id . $paymentAnchor);
+        }
         $amount = round((float) ($_POST['amount'] ?? 0), 2);
         $method = (string) ($_POST['method'] ?? '');
         $note = trim((string) ($_POST['note'] ?? '')) ?: null;
@@ -349,7 +357,7 @@ if ((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             redirect('reservation.php?id=' . $id . $paymentAnchor);
         }
         if ((float) $reservation['total_price'] <= 0) {
-            flash('error', 'Stel eerst de totaalprijs in voordat je een betaling registreert.');
+            flash('error', $isReplacementReservation ? 'Stel eerst een vervangkost in voordat je een betaling registreert.' : 'Stel eerst de totaalprijs in voordat je een betaling registreert.');
             redirect('reservation.php?id=' . $id . $paymentAnchor);
         }
         if ($amount - (float) $summary['outstanding'] > 0.009) {
