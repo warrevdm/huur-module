@@ -85,10 +85,10 @@ if ($method === 'POST') {
 
         $reservationStmt = db()->prepare(
             'INSERT INTO reservations
-             (bike_id, customer_id, identity_document_id, start_at, end_at, status, total_price, notes, created_by,
+             (bike_id, customer_id, identity_document_id, start_at, end_at, status, rental_kind, total_price, notes, created_by,
               eid_physical_checked, eid_photo_match)
              VALUES
-             (:bike_id, :customer_id, NULL, :start_at, :end_at, :status, 0, :notes, :created_by, 0, 0)'
+             (:bike_id, :customer_id, NULL, :start_at, :end_at, :status, 'replacement', 0, :notes, :created_by, 0, 0)'
         );
         $reservationStmt->execute([
             ':bike_id' => $selectedBikeId,
@@ -118,6 +118,7 @@ if ($method === 'POST') {
             'start_at' => $startAt,
             'return_at' => $endAt,
             'total_price' => 0,
+            'rental_kind' => 'replacement',
         ]);
 
         db()->commit();
